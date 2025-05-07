@@ -5,15 +5,14 @@
 
 require "ffi"
 require "tb_client/shared_lib"
+require "tb_client/types"
 
 module TBClient
   extend FFI::Library
 
   ffi_lib SharedLib.path
 
-  class UINT128 < FFI::Struct
-    layout(low: :uint64, high: :uint64)
-  end
+  typedefs Types::UINT128, :uint128
 
   Operation = enum(FFI::Type::UINT8, [
     :PULSE, 128,
@@ -200,6 +199,8 @@ module TBClient
   ])
 
   class Packet < FFI::Struct
+    include FFIStructConverter
+
     layout(
       user_data: :pointer,
       data: :pointer,
@@ -212,19 +213,23 @@ module TBClient
   end
 
   class Client < FFI::Struct
+    include FFIStructConverter
+
     layout(
       opaque: [:uint64, 4],
     )
   end
 
   class Account < FFI::Struct
+    include FFIStructConverter
+
     layout(
-      id: UINT128,
-      debits_pending: UINT128,
-      debits_posted: UINT128,
-      credits_pending: UINT128,
-      credits_posted: UINT128,
-      user_data_128: UINT128,
+      id: :uint128,
+      debits_pending: :uint128,
+      debits_posted: :uint128,
+      credits_pending: :uint128,
+      credits_posted: :uint128,
+      user_data_128: :uint128,
       user_data_64: :uint64,
       user_data_32: :uint32,
       reserved: :uint32,
@@ -236,13 +241,15 @@ module TBClient
   end
 
   class Transfer < FFI::Struct
+    include FFIStructConverter
+
     layout(
-      id: UINT128,
-      debit_account_id: UINT128,
-      credit_account_id: UINT128,
-      amount: UINT128,
-      pending_id: UINT128,
-      user_data_128: UINT128,
+      id: :uint128,
+      debit_account_id: :uint128,
+      credit_account_id: :uint128,
+      amount: :uint128,
+      pending_id: :uint128,
+      user_data_128: :uint128,
       user_data_64: :uint64,
       user_data_32: :uint32,
       timeout: :uint32,
@@ -254,6 +261,8 @@ module TBClient
   end
 
   class CreateAccountsResult < FFI::Struct
+    include FFIStructConverter
+
     layout(
       index: :uint32,
       result: CreateAccountResult,
@@ -261,6 +270,8 @@ module TBClient
   end
 
   class CreateTransfersResult < FFI::Struct
+    include FFIStructConverter
+
     layout(
       index: :uint32,
       result: CreateTransferResult,
@@ -268,9 +279,11 @@ module TBClient
   end
 
   class AccountFilter < FFI::Struct
+    include FFIStructConverter
+
     layout(
-      account_id: UINT128,
-      user_data_128: UINT128,
+      account_id: :uint128,
+      user_data_128: :uint128,
       user_data_64: :uint64,
       user_data_32: :uint32,
       code: :uint16,
@@ -283,19 +296,23 @@ module TBClient
   end
 
   class AccountBalance < FFI::Struct
+    include FFIStructConverter
+
     layout(
-      debits_pending: UINT128,
-      debits_posted: UINT128,
-      credits_pending: UINT128,
-      credits_posted: UINT128,
+      debits_pending: :uint128,
+      debits_posted: :uint128,
+      credits_pending: :uint128,
+      credits_posted: :uint128,
       timestamp: :uint64,
       reserved: [:uint8, 56],
     )
   end
 
   class QueryFilter < FFI::Struct
+    include FFIStructConverter
+
     layout(
-      user_data_128: UINT128,
+      user_data_128: :uint128,
       user_data_64: :uint64,
       user_data_32: :uint32,
       ledger: :uint32,

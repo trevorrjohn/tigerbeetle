@@ -55,5 +55,13 @@ module TBClient
         end
       end
     end
+
+    def validate_uint!(name, bits, value)
+      if value > 2**bits - 1
+        raise ArgumentError, "#{name} == #{value} is too large to fit in #{bits} bits"
+      elsif value < 0
+        raise ArgumentError, "#{name} == #{value} cannot be negative"
+      end
+    end
   end
 end

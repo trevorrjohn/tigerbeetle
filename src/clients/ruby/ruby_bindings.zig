@@ -87,7 +87,7 @@ fn zig_to_ruby(comptime Type: type) []const u8 {
                 16 => ":uint16",
                 32 => ":uint32",
                 64 => ":uint64",
-                128 => "UINT128",
+                128 => ":uint128",
                 else => @compileError("invalid int type"),
             };
         },
@@ -121,7 +121,6 @@ fn ruby_ffi_enum_type(comptime Type: type) []const u8 {
         16 => "FFI::Type::UINT16",
         32 => "FFI::Type::UINT32",
         64 => "FFI::Type::UINT64",
-        128 => "TBClient::UINT128",
         else => @compileError("invalid int type"),
     };
 }
@@ -176,10 +175,13 @@ fn emit_ruby_ffi_struct(
 ) !void {
     buffer.print(
         \\  class {s} < FFI::Struct
+        \\    include FFIStructConverter
+        \\
         \\    layout(
         \\
     , .{c_name});
 
+    // Emit layout of struct
     inline for (type_info.fields) |field| {
         const ruby_name_map = comptime mapping_name_from_type(mappings_all, field.type);
         if (ruby_name_map) |ruby_name| {
@@ -194,13 +196,7 @@ fn emit_ruby_ffi_struct(
             });
         }
     }
-
-    buffer.print(
-        \\    )
-        \\  end
-        \\
-        \\
-    , .{});
+    buffer.print("    )\n  end\n\n", .{});
 }
 
 pub fn main() !void {
@@ -219,15 +215,14 @@ pub fn main() !void {
         \\
         \\require "ffi"
         \\require "tb_client/shared_lib"
+        \\require "tb_client/types"
         \\
         \\module TBClient
         \\  extend FFI::Library
         \\
         \\  ffi_lib SharedLib.path
         \\
-        \\  class UINT128 < FFI::Struct
-        \\    layout(low: :uint64, high: :uint64)
-        \\  end
+        \\  typedefs Types::UINT128, :uint128
         \\
         \\
     , .{});
