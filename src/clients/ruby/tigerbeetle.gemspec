@@ -34,6 +34,8 @@ Gem::Specification.new do |spec|
   spec.executables = spec.files.grep(%r{\Aexe/}) { |f| File.basename(f) }
   spec.require_paths = ["lib"]
 
+  spec.extensions = ['ext/tigerbeetle/extconf.rb']
+
   spec.add_dependency "ffi", ">= 1.0"
 end
 
