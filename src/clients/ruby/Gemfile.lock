@@ -1,0 +1,18 @@
+PATH
+  remote: .
+  specs:
+    tigerbeetle (0.1.0)
+
+GEM
+  remote: https://rubygems.org/
+  specs:
+
+PLATFORMS
+  ruby
+  x86_64-linux
+
+DEPENDENCIES
+  tigerbeetle!
+
+BUNDLED WITH
+   2.6.2
