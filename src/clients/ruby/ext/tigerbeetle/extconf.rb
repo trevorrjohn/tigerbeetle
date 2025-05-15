@@ -50,6 +50,9 @@ puts "Detected platform: #{platform_dir}"
 lib_dir = File.join(File.dirname(__FILE__), platform_dir)
 abort "Lib dir missing" unless Dir.exist?(lib_dir)
 
+$LDFLAGS << " -Wl,-rpath,#{lib_dir}"
+$LDFLAGS << " -L#{lib_dir}"
+
 lib_file = if platform_dir.include?('macos')
   File.join(lib_dir, 'libtb_client.dylib')
 elsif platform_dir.include?('windows')
