@@ -1,9 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 IFS=$'\n\t'
-set -vx
+
+# Get the directory of the current script
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 # Do any other automated setup that you need to do here
+pushd "$SCRIPT_DIR/../ext/tigerbeetle"
+  ruby extconf.rb
+  make clean && make install
+popd
 
-ruby ext/tigerbeetle/extconf.rb
-make clean && make install
+echo ""
+echo "Success"
