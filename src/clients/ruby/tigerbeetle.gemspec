@@ -33,9 +33,16 @@ Gem::Specification.new do |spec|
   spec.bindir = "exe"
   spec.executables = spec.files.grep(%r{\Aexe/}) { |f| File.basename(f) }
   spec.require_paths = ["lib"]
+  spec.files = Dir.glob([
+    "lib/**/*.rb",
+    "ext/**/*.{c,h,rb}",
+    "ext/**/*/lib*.{so,dylib,dll}",  # Include precompiled libraries
+    "README.md",
+    "LICENSE",
+    "*.gemspec"
+  ])
 
+  spec.required_ruby_version = ">= 3.2.0"
   spec.extensions = ['ext/tigerbeetle/extconf.rb']
-
-  spec.add_dependency "ffi", ">= 1.0"
 end
 
