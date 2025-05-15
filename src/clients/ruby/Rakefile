@@ -1,0 +1,109 @@
+# frozen_string_literal: true
+require "bundler/gem_tasks"
+require "rubygems/package_task"
+require "rake/testtask"
+require "rake/extensiontask"
+require "rake_compiler_dock"
+
+cross_rubies = ["3.4.1"]
+
+cross_platforms = [
+  "aarch64-linux-gnu.2.27",
+  "aarch64-linux-musl",
+  "aarch64-macos",
+  "x86_64-linux-gnu.2.27",
+  "x86_64-linux-musl",
+  "x86_64-macos",
+  "x86_64-windows"
+]
+
+ENV["RUBY_CC_VERSION"] = cross_rubies.join(":")
+
+RakeCompilerDock.set_ruby_cc_version("~> 3.4")
+
+tigerbeetle_spec = Bundler.load_gemspec("tigerbeetle.gemspec")
+Gem::PackageTask.new(tigerbeetle_spec).define #packaged_tarball version of the gem for platform=ruby
+
+task "package" => "gem:all"
+
+Rake::TestTask.new(:test) do |t|
+  t.libs << "test"
+  t.libs << "lib"
+  t.test_files = FileList["test/**/*_test.rb"]
+end
+
+Rake::ExtensionTask.new("tigerbeetle", tigerbeetle_spec) do |ext|
+  ext.lib_dir = "lib/tigerbeetle"
+  ext.cross_compile = true
+  ext.cross_platform = cross_platforms
+  ext.cross_config_options << "--enable-cross-build" # so extconf.rb knows we're cross-compiling
+  ext.cross_compiling do |spec|
+    # remove things not needed for precompiled gems
+    # spec.dependencies.reject! { |dep| dep.name == "mini_portile2" }
+    # spec.files.reject! { |file| File.fnmatch?("*.tar.gz", file) }
+
+    if spec.platform.os == "linux"
+      # the `-gnu` suffix is not recognized in earlier versions of rubygems
+      spec.required_rubygems_version.concat([">= 3.3.22"])
+    end
+  end
+end
+
+namespace "gem" do
+  cross_platforms.each do |platform|
+    desc "build native gem for #{platform}"
+    task platform do
+      RakeCompilerDock.sh(<<~EOF, platform: platform)
+        gem install bundler --no-document &&
+        bundle &&
+        bundle exec rake gem:#{platform}:buildit
+      EOF
+    end
+
+    namespace platform do
+      # this runs in the rake-compiler-dock docker container
+      task "buildit" do
+        # use Task#invoke because the pkg/*gem task is defined at runtime
+        Rake::Task["native:#{platform}"].invoke
+        Rake::Task["pkg/#{tigerbeetle_spec.full_name}-#{Gem::Platform.new(platform)}.gem"].invoke
+      end
+    end
+  end
+
+  desc "build native gem for all platforms"
+  multitask "all" => [cross_platforms, "gem"].flatten
+end
+
+desc "Temporarily set VERSION to a unique timestamp"
+task "set-version-to-timestamp" do
+  # this task is used by bin/test-gem-build
+  # to test building, packaging, and installing a precompiled gem
+  version_constant_re = /^\s*VERSION\s*=\s*["'](.*)["']$/
+
+  version_file_path = File.join(__dir__, "lib/tigerbeetle/version.rb")
+  version_file_contents = File.read(version_file_path)
+
+  current_version_string = version_constant_re.match(version_file_contents)[1]
+  current_version = Gem::Version.new(current_version_string)
+
+  fake_version = Gem::Version.new(format("%s.test.%s", current_version.bump, Time.now.strftime("%Y.%m%d.%H%M")))
+
+  unless version_file_contents.gsub!(version_constant_re, "    VERSION = \"#{fake_version}\"")
+    raise("Could not hack the VERSION constant")
+  end
+
+  File.open(version_file_path, "w") { |f| f.write(version_file_contents) }
+
+  puts "NOTE: wrote version as \"#{fake_version}\""
+end
+
+task default: [:clobber, :compile, :test]
+
+CLEAN.add("{ext,lib}/**/*.{o,so}", "pkg")
+CLOBBER.add("ports")
+
+# when packaging the gem, if the tarball isn't cached, we need to fetch it. the easiest thing to do
+# is to run the compile phase to invoke the extconf and have mini_portile download the file for us.
+# this is wasteful and in the future I would prefer to separate mini_portile from the extconf to
+# allow us to download without compiling.
+Rake::Task["package"].prerequisites.prepend("compile")

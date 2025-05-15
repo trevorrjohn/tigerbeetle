@@ -1520,8 +1520,9 @@ fn build_ruby_client(
         step_clients_ruby.dependOn(&b.addInstallFile(
             shared_lib.getEmittedBin(),
             b.pathJoin(&.{
-                "../src/clients/ruby/ext/",
+                "../src/clients/ruby/ext/libtb_client/",
                 platform[0],
+                "0.16.39",
                 shared_lib.out_filename,
             }),
         ).step);
