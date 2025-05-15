@@ -63,7 +63,8 @@ end
 
 abort "#{lib_file} not found" unless File.exist?(lib_file)
 
-dir_config("tb_client", nil, lib_dir)
+header_dir = File.dirname(__FILE__)
+dir_config("tb_client", header_dir, lib_dir)
 
 have_library("tb_client") or abort "tb_client library not found"
 
