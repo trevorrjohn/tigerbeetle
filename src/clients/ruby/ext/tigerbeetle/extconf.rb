@@ -76,10 +76,12 @@ if platform_dir.include?("macos")
     end
   end
 
+  # Note Makefile requires a tab character at the beginning of the line
   modified_lines << <<~INSTALL_DYLIB
+
   install-dylib:
-    install_name_tool -change libtb_client.dylib @rpath/libtb_client.dylib $(DLLIB)
-    $(INSTALL_DATA) #{lib_file} $(RUBYARCHDIR)
+  \t$(INSTALL_DATA) #{lib_file} $(RUBYARCHDIR)
+
   INSTALL_DYLIB
 
   File.write("Makefile", modified_lines.join)
