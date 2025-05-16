@@ -1,8 +1,6 @@
 require "mkmf"
 require "rbconfig"
 
-dir_config("tigerbeetle")
-
 def detect_platform
   host_os = RbConfig::CONFIG['host_os']
   cpu = RbConfig::CONFIG['host_cpu']
@@ -45,13 +43,11 @@ if platform_dir.nil?
   abort "Unsupported platform: #{RbConfig::CONFIG['host_os']} / #{RbConfig::CONFIG['host_cpu']}"
 end
 
-puts "Detected platform: #{platform_dir}"
+STDERR.puts "Detected platform: #{platform_dir}"
 
-lib_dir = File.join(File.dirname(__FILE__), platform_dir)
+inc_dir = File.expand_path(File.dirname(__FILE__))
+lib_dir = File.join(inc_dir, platform_dir)
 abort "Lib dir missing" unless Dir.exist?(lib_dir)
-
-$LDFLAGS << " -Wl,-rpath,#{lib_dir}"
-$LDFLAGS << " -L#{lib_dir}"
 
 lib_file = if platform_dir.include?('macos')
   File.join(lib_dir, 'libtb_client.dylib')
@@ -63,9 +59,28 @@ end
 
 abort "#{lib_file} not found" unless File.exist?(lib_file)
 
-header_dir = File.dirname(__FILE__)
-dir_config("tb_client", header_dir, lib_dir)
+dir_config("tb_client", inc_dir, lib_dir)
 
-have_library("tb_client") or abort "tb_client library not found"
+have_library("tb_client", "tb_client_init", "tb_client.h") or abort "tb_client library not found"
+
+append_ldflags("-Wl,-rpath,@loader_path") if platform_dir.include?("macos")
 
 create_makefile("tigerbeetle/tigerbeetle")
+
+if platform_dir.include?("macos")
+  modified_lines = File.readlines("Makefile").map do |line|
+    if line.start_with?("install:")
+      line.strip + " install-dylib\n"
+    else
+      line
+    end
+  end
+
+  modified_lines << <<~INSTALL_DYLIB
+  install-dylib:
+    install_name_tool -change libtb_client.dylib @rpath/libtb_client.dylib $(DLLIB)
+    $(INSTALL_DATA) #{lib_file} $(RUBYARCHDIR)
+  INSTALL_DYLIB
+
+  File.write("Makefile", modified_lines.join)
+end

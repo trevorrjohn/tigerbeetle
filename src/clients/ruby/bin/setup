@@ -11,5 +11,4 @@ pushd "$SCRIPT_DIR/../ext/tigerbeetle"
   make clean && make install
 popd
 
-echo ""
-echo "Success"
+echo -e "\n**** Success ****\n"
