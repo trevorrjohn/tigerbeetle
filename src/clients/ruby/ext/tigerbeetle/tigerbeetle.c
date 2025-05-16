@@ -28,13 +28,13 @@ void rb_tb_completion_callback(uintptr_t ctx, tb_packet_t* packet, uint64_t time
 void handle_init_error_status(TB_INIT_STATUS status);
 static VALUE rb_tb_client_initialize(int argc, VALUE *argv, VALUE self);
 
-typedef struct {
-  tb_account_t account;
-  VALUE rb_data;
-} rb_tb_account_wrapper;
-
-static const rb_data_type_t rb_tb_account_type = {
-}
+// typedef struct {
+//   tb_account_t account;
+//   VALUE rb_data;
+// } rb_tb_account_wrapper;
+//
+// static const rb_data_type_t rb_tb_account_type = {
+// }
 
 /*
   * client = TigerBeetle::Client.new ...
@@ -47,9 +47,9 @@ static const rb_data_type_t rb_tb_account_type = {
   *
   *
   */
-static VALUE rb_tb_client_submit(VALUE self, VALUE rb_data, VALUE rb_operation);
-static VALUE rb_tb_client_submit(VALUE self, VALUE rb_data, VALUE rb_operation) {
-}
+// static VALUE rb_tb_client_submit(VALUE self, VALUE rb_data, VALUE rb_operation);
+// static VALUE rb_tb_client_submit(VALUE self, VALUE rb_data, VALUE rb_operation) {
+// }
 
 void Init_tigerbeetle() {
   VALUE mTigerBeetle = rb_define_module("TigerBeetle");

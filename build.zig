@@ -1466,7 +1466,7 @@ fn build_ruby_client(
 ) void {
     const tb_client_header_copy = Generated.file_copy(b, .{
         .from = options.tb_client_header,
-        .path = "./src/clients/ruby/ext/tb_client.h",
+        .path = "./src/clients/ruby/ext/tb_client/tb_client.h",
     });
     const ruby_bindings_generator = b.addExecutable(.{
         .name = "ruby_bindings",
@@ -1520,7 +1520,7 @@ fn build_ruby_client(
         step_clients_ruby.dependOn(&b.addInstallFile(
             shared_lib.getEmittedBin(),
             b.pathJoin(&.{
-                "../src/clients/ruby/ext/",
+                "../src/clients/ruby/ext/tb_client/",
                 platform[0],
                 shared_lib.out_filename,
             }),
