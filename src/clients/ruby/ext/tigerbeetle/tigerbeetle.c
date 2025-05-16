@@ -28,6 +28,29 @@ void rb_tb_completion_callback(uintptr_t ctx, tb_packet_t* packet, uint64_t time
 void handle_init_error_status(TB_INIT_STATUS status);
 static VALUE rb_tb_client_initialize(int argc, VALUE *argv, VALUE self);
 
+typedef struct {
+  tb_account_t account;
+  VALUE rb_data;
+} rb_tb_account_wrapper;
+
+static const rb_data_type_t rb_tb_account_type = {
+}
+
+/*
+  * client = TigerBeetle::Client.new ...
+  * flags = TigerBeetle::Bindings::ACCOUNT_FLAGS::ACCOUNT_DEBITS_MUST_NOT_EXCEED_CREDITS
+  * data = [TigerBeetle::Bindings::Account.new(id: "123", user_data: "456", ledger: 10, code: 1, flags:)]
+  * operation = TigerBeetle::Bindings::TB_OPERATION::CREATE_ACCOUNT
+  * client.submit(data, operation)
+  *
+  * callback(ctx, packet, timestamp, result_ptr, result_len)
+  *
+  *
+  */
+static VALUE rb_tb_client_submit(VALUE self, VALUE rb_data, VALUE rb_operation);
+static VALUE rb_tb_client_submit(VALUE self, VALUE rb_data, VALUE rb_operation) {
+}
+
 void Init_tigerbeetle() {
   VALUE mTigerBeetle = rb_define_module("TigerBeetle");
   VALUE rb_cClient = rb_define_class_under(mTigerBeetle, "Client", rb_cObject);
@@ -248,5 +271,9 @@ void rb_tb_completion_callback(uintptr_t ctx, tb_packet_t* packet, uint64_t time
     rb_raise(rb_eRuntimeError, "No callback set");
   }
 
+  /*
+    * client.completion_callback(packet, timestamp, result_str)
+    *
+    */
   rb_funcall(wrapper->callback, rb_intern("call"), 1, (VALUE)ctx);
 }
