@@ -45,7 +45,7 @@ end
 
 STDERR.puts "Detected platform: #{platform_dir}"
 
-inc_dir = File.expand_path(File.dirname(__FILE__))
+inc_dir = File.join(File.expand_path(File.dirname(__FILE__)), "..", "tb_client")
 lib_dir = File.join(inc_dir, platform_dir)
 abort "Lib dir missing" unless Dir.exist?(lib_dir)
 

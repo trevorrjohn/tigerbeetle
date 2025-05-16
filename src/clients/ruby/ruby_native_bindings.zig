@@ -154,7 +154,6 @@ fn emit_enum(
                     @intFromEnum(@field(Type, field.name)),
                 });
             } else {
-                // Packed structs.
                 buffer.print("  rb_define_const(m{s}, \"{s}\", INT2NUM(1 << {d}));\n", .{
                     ruby_name,
                     @as([]const u8, &field_name),
@@ -189,13 +188,13 @@ fn emit_ruby_ffi_struct(
         \\  rb_define_const(mTigerBeetleBindings, "{s}", {s}_class);
         \\
         \\
-        , .{
-            c_name,
-            type_info.fields.len,
-            c_name,
-            c_name,
-            c_name,
-        });
+    , .{
+        c_name,
+        type_info.fields.len,
+        c_name,
+        c_name,
+        c_name,
+    });
 }
 
 pub fn main() !void {
