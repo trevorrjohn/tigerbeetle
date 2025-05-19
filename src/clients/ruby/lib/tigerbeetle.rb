@@ -3,6 +3,8 @@
 require_relative "tigerbeetle/version"
 require_relative "tigerbeetle/result"
 require_relative "tigerbeetle/account"
+require_relative "tigerbeetle/client"
+require_relative "tigerbeetle/bindings"
 
 require "tigerbeetle/tigerbeetle"
 
