@@ -280,8 +280,7 @@ void rb_tb_completion_callback(uintptr_t _ctx, tb_packet_t* packet, uint64_t tim
   // create the result object
   VALUE mTB = rb_const_get(rb_cObject, rb_intern("TigerBeetle"));
   VALUE rbResult = rb_const_get(mTB, rb_intern("Result"));
-  VALUE args[3] = { status_code, result_at, data };
-  VALUE result = rb_funcall(rbResult, rb_intern("new"), 3, args);
+  VALUE result = rb_funcall(rbResult, rb_intern("new"), 3, status_code, result_at, data);
 
   // call the passed to submit callback
   rb_funcall(wrapper->proc, rb_intern("call"), 1, result);
@@ -293,29 +292,82 @@ void rb_tb_completion_callback(uintptr_t _ctx, tb_packet_t* packet, uint64_t tim
 }
 
 static VALUE rb_tb_client_submit(int argc, VALUE *argv, VALUE self) {
-  VALUE rb_data, rb_operation;
-  rb_scan_args(argc, argv, "2", &rb_data, &rb_operation);
+  VALUE rb_data, rb_operation, rb_proc;
+  VALUE rb_block = Qnil;
+  rb_scan_args(argc, argv, "21&", &rb_operation, &rb_data, &rb_block);
 
-  if (!rb_block_given_p()) {
-    rb_raise(rb_eArgError, "Block required");
+  if (NIL_P(rb_block)) {
+    if (NIL_P(rb_proc) || !rb_respond_to(rb_proc, rb_intern("call")))) {
+      rb_raise(rb_eArgError, "Either a block or a proc must be provided");
+    }
+
+    rb_block = rb_proc;
+  } else {
+    if (!NIL_P(rb_proc)) {
+      rb_raise(rb_eArgError, "Cannot provide both a block and a proc");
+    }
   }
 
   // need to create a callback wrapper and register for GC
   rb_tb_proc_wrapper *callback_wrapper;
   VALUE wrapper_obj = TypedData_Make_Struct(rb_cObject, rb_tb_proc_wrapper,
                                             &rb_tb_proc_type, callback_wrapper);
-  callback_wrapper->proc = rb_block_proc();
+  callback_wrapper->proc = rb_block;
   callback_wrapper->self = wrapper_obj;
   rb_gc_register_address(&callback_wrapper->self);
 
   // create the packet data to be sent
   tb_packet_t *packet = (tb_packet_t *)ZALLOC(tb_packet_t);
+  uint8_t operation = (uint8_t)NUM2UINT(rb_operation);
+  packet->operation = operation;
+  // assume it's an array for now
+  // TODO handle case where single data option
+
+
+  if (!RB_TYPE_P(rb_data, T_ARRAY)) {
+    rb_raise(rb_eTypeError, "data must be an Array");
+  }
+  long i;
+  size_t data_size = 0;
+  long len = RARRAY_LEN(data);
+  for (i = 0; i < len; i++) {
+    VALUE item = rb_ary_entry(rb_data, i);
+    if (!rb_respond_to(item, rb_intern("bytesize"))) {
+      rb_raise(rb_eTypeError, "data must be an Array of Strings");
+    }
+
+    data_size += (size_t)NUM2UINT(rb_funcall(item, rb_intern("bytesize"), 0));
+  }
+  void* data = malloc(data_size);
+  if (!data) {
+    rb_raise(rb_eNoMemError, "Failed to allocate memory for data %zu bytes", data_size);
+  }
+  size_t offset = 0;
+  for (i = 0; i < len; i++) {
+    VALUE item = rb_ary_entry(rb_data, i);
+    size_t item_size = (size_t)NUM2UINT(rb_funcall(item, rb_intern("bytesize"), 0));
+
+    memcpy(data + (i * data_item_size), StringValueCStr(item), item_size);
+
+    // if it is a struct
+    // iterate over fields
+    // allocate what you can
+    //
+    // else if type is a integer
+    //
+    // else
+    // raise an error
+    //
+    memcpy(data + (i * data_item_size), NUM2(item), item_size);
+  }
+
   // tb_account_t* act = (tb_account_t*)ZALLOC(tb_account_t);
   // act->id = 1;
   // act->ledger = 1;
   // act->code = 1;
   // packet->data = act;
   // packet->data_size = sizeof(tb_account_t);
+
   packet->user_data = (void*)callback_wrapper;
   // strdup to allocate the memory
   char* str_data = StringValueCStr(rb_data);

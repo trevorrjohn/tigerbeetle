@@ -87,7 +87,7 @@ fn zig_to_ruby(comptime Type: type) []const u8 {
                 16 => ":uint16",
                 32 => ":uint32",
                 64 => ":uint64",
-                128 => ":uint128",
+                128 => "CUint128",
                 else => @compileError("invalid int type"),
             };
         },
@@ -117,10 +117,10 @@ fn to_uppercase(comptime input: []const u8) [input.len]u8 {
 
 fn ruby_ffi_enum_type(comptime Type: type) []const u8 {
     return switch (@bitSizeOf(Type)) {
-        8 => "FFI::Type::UINT8",
-        16 => "FFI::Type::UINT16",
-        32 => "FFI::Type::UINT32",
-        64 => "FFI::Type::UINT64",
+        8 => "uint8",
+        16 => "uint16",
+        32 => "uint32",
+        64 => "uint64",
         else => @compileError("invalid int type"),
     };
 }
@@ -132,14 +132,17 @@ fn emit_enum(
     comptime ruby_name: []const u8,
     comptime skip_fields: []const []const u8,
 ) !void {
-    if (@typeInfo(Type) == .Enum) {
-        buffer.print("    {s} = enum({s}, [\n", .{ ruby_name, comptime ruby_ffi_enum_type(Type) });
-    } else {
-        // Packed structs.
+    if (@typeInfo(Type) != .Enum) {
         assert(@typeInfo(Type) == .Struct and @typeInfo(Type).Struct.layout == .@"packed");
-
-        buffer.print("    {s} = bitmask({s}, [\n", .{ ruby_name, comptime ruby_ffi_enum_type(Type) });
     }
+
+    buffer.print(
+        \\    class {s} < CEnum
+        \\      c_type :{s}
+        \\
+        \\      options(
+        \\
+    , .{ ruby_name, comptime ruby_ffi_enum_type(Type) });
 
     inline for (type_info.fields, 0..) |field, i| {
         if (comptime std.mem.startsWith(u8, field.name, "deprecated_")) continue;
@@ -151,13 +154,13 @@ fn emit_enum(
         if (!skip) {
             const field_name = to_uppercase(field.name);
             if (@typeInfo(Type) == .Enum) {
-                buffer.print("      :{s}, {d},\n", .{
+                buffer.print("        {s}: {d},\n", .{
                     @as([]const u8, &field_name),
                     @intFromEnum(@field(Type, field.name)),
                 });
             } else {
                 // Packed structs.
-                buffer.print("      :{s}, 1 << {d},\n", .{
+                buffer.print("        {s}: 1 << {d},\n", .{
                     @as([]const u8, &field_name),
                     i,
                 });
@@ -165,7 +168,12 @@ fn emit_enum(
         }
     }
 
-    buffer.print("    ])\n\n", .{});
+    buffer.print(
+        \\      )
+        \\    end
+        \\
+        \\
+    , .{});
 }
 
 fn emit_ruby_ffi_struct(
@@ -174,9 +182,7 @@ fn emit_ruby_ffi_struct(
     comptime c_name: []const u8,
 ) !void {
     buffer.print(
-        \\    class {s} < FFI::Struct
-        \\      include TigerBeetle::StructConverter
-        \\
+        \\    class {s} < CStruct
         \\      layout(
         \\
     , .{c_name});
@@ -218,21 +224,17 @@ pub fn main() !void {
         \\##              Do not manually modify.                 ##
         \\##########################################################
         \\
-        \\require "ffi"
-        \\
+        \\require "fiddle"
+        \\require "fiddle/import"
         \\require_relative "shared_lib"
-        \\require_relative "struct_converter"
-        \\require_relative "types"
-        \\require_relative "version"
+        \\require_relative "c_struct"
+        \\require_relative "c_enum"
         \\
         \\module TigerBeetle
         \\  module Bindings
-        \\    extend FFI::Library
+        \\    extend Fiddle::Importer
         \\
-        \\    typedef TigerBeetle::Types::UINT128, :uint128
-        \\
-        \\    ffi_lib SharedLib.path
-        \\
+        \\    dlload SharedLib.path
         \\
     , .{});
 
@@ -280,15 +282,15 @@ pub fn main() !void {
     }
 
     buffer.print(
-        \\    callback :init_completion, [:uint, Packet.by_ref, :uint64, :pointer, :uint32], :void
-        \\    callback :log_handler, [LogLevel, :pointer, :uint32], :void
+        \\    # callback :init_completion, [:uint, Packet.by_ref, :uint64, :pointer, :uint32], :void
+        \\    # callback :log_handler, [LogLevel, :pointer, :uint32], :void
         \\
-        \\    attach_function :tb_client_init, [Client.by_ref, :pointer, :string, :uint32, :uint, :init_completion], InitStatus
-        \\    attach_function :tb_client_init_echo, [Client.by_ref, :pointer, :string, :uint32, :uint, :init_completion], InitStatus
-        \\    attach_function :tb_client_completion_context, [Client.by_ref, :pointer], ClientStatus
-        \\    attach_function :tb_client_submit, [Client.by_ref, Packet.by_ref], ClientStatus
-        \\    attach_function :tb_client_deinit, [Client.by_ref], ClientStatus
-        \\    attach_function :tb_client_register_log_callback, [:log_handler, :bool], RegisterLogCallbackStatus
+        \\    # attach_function :tb_client_init, [Client.by_ref, :pointer, :string, :uint32, :uint, :init_completion], InitStatus
+        \\    # attach_function :tb_client_init_echo, [Client.by_ref, :pointer, :string, :uint32, :uint, :init_completion], InitStatus
+        \\    # attach_function :tb_client_completion_context, [Client.by_ref, :pointer], ClientStatus
+        \\    # attach_function :tb_client_submit, [Client.by_ref, Packet.by_ref], ClientStatus
+        \\    # attach_function :tb_client_deinit, [Client.by_ref], ClientStatus
+        \\    # attach_function :tb_client_register_log_callback, [:log_handler, :bool], RegisterLogCallbackStatus
         \\  end
         \\end
         \\
