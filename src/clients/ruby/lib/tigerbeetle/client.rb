@@ -1,14 +1,19 @@
 # frozen_string_literal: true
 
+require_relative "bindings"
+
 module TigerBeetle
-  module Client
+  class Client
     def initialize(addresses: "3000", cluster_id: 1)
       @client = Bindings::Client.new(addresses.to_s, cluster_id.to_i)
     end
 
     # CreateAccounts(accounts []types.Account) ([]types.AccountEventResult, error)
-    def create_accounts(accounts)
-      client.create_accounts(array_wrap(accounts))
+    def create_accounts(*accounts, &block)
+      raise ArgumentError, "Block is required" unless block_given?
+
+      accounts  = array_wrap(accounts)
+      client.submit(Bindings::Operation::CREATE_ACCOUNTS, accounts, &block)
     end
 
     # CreateTransfers(transfers []types.Transfer) ([]types.TransferEventResult, error)
@@ -19,7 +24,7 @@ module TigerBeetle
     # LookupAccounts(accountIDs []types.Uint128) ([]types.Account, error)
     # @param account_ids [Array, Integer|String] The account IDs to look up.
     def lookup_accounts(account_ids)
-      client.lookup_accounts(array_wrap(account_ids).map(&))
+      # client.lookup_accounts(array_wrap(account_ids).map(&))
     end
 
     # LookupTransfers(transferIDs []types.Uint128) ([]types.Transfer, error)

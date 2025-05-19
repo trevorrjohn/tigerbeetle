@@ -1,23 +1,31 @@
 # frozen_string_literal: true
 
-require_relative "c_type"
 module TigerBeetle
-  class CField < CType
-    attr_reader :name, :type, :offset
+  class CField
+    C_BYTESIZES = {
+      uint8: 1,
+      uint16: 2,
+      uint32: 4,
+      uint64: 8,
+      tb_uint128_t: 16,
+      pointer: 8,
+    }.freeze
 
-    def initialize(name, type, offset: 0)
+    attr_reader :name, :type, :value
+
+    def initialize(name:, type:, value: nil)
       @name = name
       @type = type
-      @offset = offset
     end
 
-    def c_type = type
-
     def bytesize
-      if type.is_a?(CType)
+      case type
+      when CEnum
         type.bytesize
-      elsif type.is_a?(Symbol)
-        CType::C_TYPE_BYTESIZES[type]
+      when Symbol
+        C_BYTESIZES[type] || raise(ArgumentError, "Invalid c_type: #{type}")
+      else
+        raise ArgumentError, "Invalid c_type: #{type}"
       end
     end
   end

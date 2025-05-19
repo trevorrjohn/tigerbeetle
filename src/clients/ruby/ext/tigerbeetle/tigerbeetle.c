@@ -1,7 +1,10 @@
 #include <ruby.h>
 #include "tb_client.h"
 
+const size_t MAX_BATCH_SIZE = 8189;
+
 tb_uint128_t rb_to_uint128(VALUE rb);
+
 
 typedef struct {
   tb_client_t client;
@@ -48,8 +51,9 @@ static VALUE rb_tb_client_initialize(int argc, VALUE *argv, VALUE self);
 static VALUE rb_tb_client_submit(int argc, VALUE *argv, VALUE self);
 
 void Init_tigerbeetle() {
-  VALUE mTigerBeetle = rb_define_module("TigerBeetle");
-  VALUE rb_cClient = rb_define_class_under(mTigerBeetle, "Client", rb_cObject);
+  VALUE tb_module = rb_define_module("TigerBeetle");
+  VALUE bindings_module = rb_define_module_under(tb_module, "Bindings");
+  VALUE rb_cClient = rb_define_class_under(bindings_module, "Client", rb_cObject);
   rb_define_alloc_func(rb_cClient, rb_tb_client_alloc);
   rb_define_method(rb_cClient, "initialize", rb_tb_client_initialize, -1);
   rb_define_method(rb_cClient, "submit", rb_tb_client_submit, -1);
@@ -291,21 +295,93 @@ void rb_tb_completion_callback(uintptr_t _ctx, tb_packet_t* packet, uint64_t tim
   xfree(packet);
 }
 
+static size_t size_of_operation(TB_OPERATION op) {
+  switch(op) {
+    case TB_OPERATION_CREATE_ACCOUNTS:
+      return sizeof(tb_account_t);
+      break;
+    case TB_OPERATION_CREATE_TRANSFERS:
+      return sizeof(tb_transfer_t);
+      break;
+    default:
+      rb_raise(rb_eArgError, "Invalid operation");
+      return 0;
+  }
+}
+
+void fill_field(VALUE field_name, VALUE field_type, VALUE member, void* dest, size_t* offset) {
+  Check_Type(field_type, T_SYMBOL);
+
+  VALUE field_type_str = rb_funcall(field_type, rb_intern("to_s"), 0);
+  const char* type = StringValueCStr(field_type_str);
+
+  if (strcmp(type, "uint8") == 0) {
+    uint8_t val = NUM2UINT(member) & 0xFF;
+    memcpy((char*)dest + *offset, &val, sizeof(val));
+    *offset += sizeof(val);
+  } else if (strcmp(type, "uint16") == 0) {
+    uint16_t val = NUM2UINT(member) & 0xFFFF;
+    memcpy((char*)dest + *offset, &val, sizeof(val));
+    *offset += sizeof(val);
+  } else if (strcmp(type, "uint32") == 0) {
+    uint32_t val = NUM2UINT(member) & 0xFFFFFFFF;
+    memcpy((char*)dest + *offset, &val, sizeof(val));
+    *offset += sizeof(val);
+  } else if (strcmp(type, "uint64") == 0) {
+    uint64_t val = NUM2ULL(member);
+    memcpy((char*)dest + *offset, &val, sizeof(val));
+    *offset += sizeof(val);
+  } else if (strcmp(type, "uint128") == 0) {
+    tb_uint128_t val = rb_to_uint128(member);
+    memcpy((char*)dest + *offset, &val, sizeof(val));
+    *offset += sizeof(val);
+  } else {
+    rb_raise(rb_eArgError, "Unsupported field type: %s", type);
+  }
+}
+
+size_t size_of_rb_type(char* type) {
+  if (strcmp(type, "uint8") == 0) {
+    return sizeof(uint8_t);
+  } else if (strcmp(type, "uint16") == 0) {
+    return sizeof(uint16_t);
+  } else if (strcmp(type, "uint32") == 0) {
+    return sizeof(uint32_t);
+  } else if (strcmp(type, "uint64") == 0) {
+    return sizeof(uint64_t);
+  } else if (strcmp(type, "uint128") == 0) {
+    return sizeof(tb_uint128_t);
+  } else if (strcmp(type, "pointer") == 0) {
+    return sizeof(char*);
+  } else {
+    rb_raise(rb_eArgError, "Unsupported field type: %s", type);
+    return 0;
+  }
+}
+
+// For a structure like your example
+void fill_struct(VALUE field_name, VALUE field_type, VALUE member, void* dest, size_t* offset) {
+  VALUE mTigerBeetle = rb_const_get(rb_cObject, rb_intern("TigerBeetle"));
+  VALUE cEnum = rb_const_get(mTigerBeetle, rb_intern("CEnum"));
+  if (RB_TYPE_P(field_type, T_ARRAY)) {
+    VALUE base_type = rb_ary_entry(field_type, 0);
+    size_t base_type_size = size_of_type(StringValueCStr(base_type));
+    long count = NUM2LONG(rb_ary_entry(field_type, 1));
+
+    if (NIL_P(member)) {
+      memset((char*)dest + *offset, 0, count * sizeof(uint8_t));
+      *offset += count * sizeof(uint8_t);
+    }
+  }
+}
+
 static VALUE rb_tb_client_submit(int argc, VALUE *argv, VALUE self) {
-  VALUE rb_data, rb_operation, rb_proc;
+  VALUE rb_data, rb_operation;
   VALUE rb_block = Qnil;
-  rb_scan_args(argc, argv, "21&", &rb_operation, &rb_data, &rb_block);
+  rb_scan_args(argc, argv, "2&", &rb_operation, &rb_data, &rb_block);
 
   if (NIL_P(rb_block)) {
-    if (NIL_P(rb_proc) || !rb_respond_to(rb_proc, rb_intern("call")))) {
-      rb_raise(rb_eArgError, "Either a block or a proc must be provided");
-    }
-
-    rb_block = rb_proc;
-  } else {
-    if (!NIL_P(rb_proc)) {
-      rb_raise(rb_eArgError, "Cannot provide both a block and a proc");
-    }
+    rb_raise(rb_eArgError, "Must provide a block to submit");
   }
 
   // need to create a callback wrapper and register for GC
@@ -318,66 +394,43 @@ static VALUE rb_tb_client_submit(int argc, VALUE *argv, VALUE self) {
 
   // create the packet data to be sent
   tb_packet_t *packet = (tb_packet_t *)ZALLOC(tb_packet_t);
-  uint8_t operation = (uint8_t)NUM2UINT(rb_operation);
+  TB_OPERATION operation = (TB_OPERATION)(uint8_t)NUM2UINT(rb_operation);
   packet->operation = operation;
-  // assume it's an array for now
-  // TODO handle case where single data option
 
-
-  if (!RB_TYPE_P(rb_data, T_ARRAY)) {
-    rb_raise(rb_eTypeError, "data must be an Array");
-  }
   long i;
-  size_t data_size = 0;
-  long len = RARRAY_LEN(data);
-  for (i = 0; i < len; i++) {
-    VALUE item = rb_ary_entry(rb_data, i);
-    if (!rb_respond_to(item, rb_intern("bytesize"))) {
-      rb_raise(rb_eTypeError, "data must be an Array of Strings");
-    }
-
-    data_size += (size_t)NUM2UINT(rb_funcall(item, rb_intern("bytesize"), 0));
+  Check_Type(rb_data, T_ARRAY);
+  size_t data_item_size = size_of_operation(operation);
+  long len = RARRAY_LEN(rb_data);
+  if (len > (long)MAX_BATCH_SIZE) {
+    rb_raise(rb_eArgError, "data array is too large");
   }
+
+  size_t data_size = data_item_size * (size_t)len;
   void* data = malloc(data_size);
+
   if (!data) {
     rb_raise(rb_eNoMemError, "Failed to allocate memory for data %zu bytes", data_size);
   }
+
   size_t offset = 0;
   for (i = 0; i < len; i++) {
-    VALUE item = rb_ary_entry(rb_data, i);
-    size_t item_size = (size_t)NUM2UINT(rb_funcall(item, rb_intern("bytesize"), 0));
+    VALUE item = RARRAY_AREF(rb_data, i);
+    // TODO check if this is the correct type
+    VALUE fields = rb_funcall(item, rb_intern("fields"), 0);
+    VALUE members = rb_funcall(item, rb_intern("members"), 0);
 
-    memcpy(data + (i * data_item_size), StringValueCStr(item), item_size);
+    for (int j = 0; j < RARRAY_LEN(fields); j++) {
+      VALUE field_name = rb_ary_entry(fields, j);
+      VALUE field_type = rb_hash_aref(fields, field_name);
+      VALUE value = rb_hash_aref(members, field_name);
 
-    // if it is a struct
-    // iterate over fields
-    // allocate what you can
-    //
-    // else if type is a integer
-    //
-    // else
-    // raise an error
-    //
-    memcpy(data + (i * data_item_size), NUM2(item), item_size);
+      fill_struct(field_name, field_type, value, data, &offset);
+    }
   }
 
-  // tb_account_t* act = (tb_account_t*)ZALLOC(tb_account_t);
-  // act->id = 1;
-  // act->ledger = 1;
-  // act->code = 1;
-  // packet->data = act;
-  // packet->data_size = sizeof(tb_account_t);
-
   packet->user_data = (void*)callback_wrapper;
-  // strdup to allocate the memory
-  char* str_data = StringValueCStr(rb_data);
-  size_t data_len = strlen(str_data) + 1;
-  char* data = ALLOC_N(char, data_len);
-  memcpy(str_data, data, data_len);
   packet->data = data;
-  packet->data_size = (uint32_t)data_len;
-  packet->user_tag = 0;
-  packet->operation = (uint8_t)NUM2UINT(rb_operation);
+  packet->data_size = (uint32_t)data_size;
 
   // send the packet to the client
   rb_tb_client_wrapper* client_wrapper;
@@ -386,6 +439,12 @@ static VALUE rb_tb_client_submit(int argc, VALUE *argv, VALUE self) {
 
   if (status == TB_CLIENT_OK) return Qtrue;
 
+  VALUE mTB = rb_const_get(rb_cObject, rb_intern("TigerBeetle"));
+  VALUE rbResult = rb_const_get(mTB, rb_intern("Result"));
+  VALUE result = rb_funcall(rbResult, rb_intern("new"), 3, UINT2NUM(status), Qnil, Qnil);
+
+  // send the failed result back to the block
+  rb_funcall(rb_block, rb_intern("call"), 1, result);
   // there was an issue and the packet wasn't sent, free any memory allocated
   rb_gc_unregister_address(&callback_wrapper->self);
   free(packet->data);

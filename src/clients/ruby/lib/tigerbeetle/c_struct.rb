@@ -1,28 +1,13 @@
 require_relative "c_type"
+require_relative "c_field"
 
 module TigerBeetle
   class CStruct < CType
-    ALLOWED_C_TYPES = [:uint8, :uint16, :uint32, :uint64].freeze
-
     class << self
-      attr_reader :fields
+      attr_reader :field_types
 
-      def layout(opts)
-        @fields = opts.map do |name, value|
-          if value.is_a?(Array)
-            
-          end
-
-        end
-
-        opts.each do |name, value|
-          define_method(:"#{name}") do
-            if value.is_a?(CType)
-            elsif value.is_a?(Symbol)
-            elsif value.is_a?(Array)
-            end
-          end
-        end
+      def layout(field_types)
+        @field_types = field_types
       end
 
       def c_type(type)
@@ -30,27 +15,20 @@ module TigerBeetle
 
         @struct_c_type = type
       end
-
-      def bytesize
-        @members.inject(0) do |size, (_name, c_type)|
-          if c_type.is_a?(CType)
-            size + c_type.bytesize
-          elsif c_type.is_a?(Symbol)
-            CType::C_TYPE_BYTESIZES[c_type] + size
-          elsif c_type.is_a?(Array)
-            c_type.second * CType::C_TYPE_BYTESIZES[c_type.first] + size
-          else
-            raise ArgumentError, "Invalid member type: #{member_type}"
-          end
-        end
-      end
     end
 
     def initialize(params = {})
-      params.each do |key, value|
-        raise ArgumentError, "Invalid field: #{key}" unless self.class.members.key?(key)
+      raise ArgumentError, "invalid key" if (self.class.field_types.keys - params.keys).any?
+
+      @members = self.class.field_types.map do |key, type|
+        value = params[key]
+
+        CField.new(
+          name: key,
+          type: type,
+          value: value
+        )
       end
-      @fields = params
     end
 
     def c_type = :struct

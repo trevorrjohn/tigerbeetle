@@ -8,10 +8,6 @@ require_relative "c_enum"
 
 module TigerBeetle
   module Bindings
-    class CUint128 < CStruct
-      layout(lo: :uint64, hi: :uint64)
-    end
-
     class Operation < CEnum
       c_type :uint8
 
@@ -256,20 +252,14 @@ module TigerBeetle
       )
     end
 
-    class Client < CStruct
-      layout(
-        opaque: [:uint64, 4],
-      )
-    end
-
     class Account < CStruct
       layout(
-        id: CUint128,
-        debits_pending: CUint128,
-        debits_posted: CUint128,
-        credits_pending: CUint128,
-        credits_posted: CUint128,
-        user_data_128: CUint128,
+        id: :uint128,
+        debits_pending: :uint128,
+        debits_posted: :uint128,
+        credits_pending: :uint128,
+        credits_posted: :uint128,
+        user_data_128: :uint128,
         user_data_64: :uint64,
         user_data_32: :uint32,
         reserved: :uint32,
@@ -282,12 +272,12 @@ module TigerBeetle
 
     class Transfer < CStruct
       layout(
-        id: CUint128,
-        debit_account_id: CUint128,
-        credit_account_id: CUint128,
-        amount: CUint128,
-        pending_id: CUint128,
-        user_data_128: CUint128,
+        id: :uint128,
+        debit_account_id: :uint128,
+        credit_account_id: :uint128,
+        amount: :uint128,
+        pending_id: :uint128,
+        user_data_128: :uint128,
         user_data_64: :uint64,
         user_data_32: :uint32,
         timeout: :uint32,
@@ -314,8 +304,8 @@ module TigerBeetle
 
     class AccountFilter < CStruct
       layout(
-        account_id: CUint128,
-        user_data_128: CUint128,
+        account_id: :uint128,
+        user_data_128: :uint128,
         user_data_64: :uint64,
         user_data_32: :uint32,
         code: :uint16,
@@ -329,10 +319,10 @@ module TigerBeetle
 
     class AccountBalance < CStruct
       layout(
-        debits_pending: CUint128,
-        debits_posted: CUint128,
-        credits_pending: CUint128,
-        credits_posted: CUint128,
+        debits_pending: :uint128,
+        debits_posted: :uint128,
+        credits_pending: :uint128,
+        credits_posted: :uint128,
         timestamp: :uint64,
         reserved: [:uint8, 56],
       )
@@ -340,7 +330,7 @@ module TigerBeetle
 
     class QueryFilter < CStruct
       layout(
-        user_data_128: CUint128,
+        user_data_128: :uint128,
         user_data_64: :uint64,
         user_data_32: :uint32,
         ledger: :uint32,
