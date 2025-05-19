@@ -2,9 +2,16 @@
 
 require_relative "tigerbeetle/version"
 require_relative "tigerbeetle/result"
+require_relative "tigerbeetle/account"
+
+require "tigerbeetle/tigerbeetle"
 
 module TigerBeetle
   class Error < StandardError; end
-end
 
-require "tigerbeetle/tigerbeetle"
+  def create_account(client, accounts, &block)
+    raise ArgumentError, "Block is required" unless block_given?
+
+    client.submit(Bindings::Operation::CREATE_ACCOUNT, accounts, &block)
+  end
+end
