@@ -19,8 +19,8 @@ const tb = vsr.tigerbeetle;
 const mappings_vsr = .{
     .{ exports.tb_operation, "Operation" },
     .{ exports.tb_packet_status, "PacketStatus" },
-    .{ exports.tb_packet_t, "Packet" },
-    .{ exports.tb_client_t, "Client" },
+    .{ exports.tb_packet_t, "Packet", "tb_packet" },
+    .{ exports.tb_client_t, "Client", "tb_client" },
     .{ exports.tb_init_status, "InitStatus" },
     .{ exports.tb_client_status, "ClientStatus" },
     .{ exports.tb_log_level, "LogLevel" },
@@ -34,15 +34,13 @@ const mappings_state_machine = .{
     .{ tb.TransferFlags, "TransferFlags" },
     .{ tb.AccountFilterFlags, "AccountFilterFlags" },
     .{ tb.QueryFilterFlags, "QueryFilterFlags" },
-    .{ tb.Account, "Account" },
-    .{ tb.Transfer, "Transfer" },
-    .{ tb.CreateAccountResult, "CreateAccountResult" },
-    .{ tb.CreateTransferResult, "CreateTransferResult" },
-    .{ tb.CreateAccountsResult, "CreateAccountsResult" },
-    .{ tb.CreateTransfersResult, "CreateTransfersResult" },
-    .{ tb.AccountFilter, "AccountFilter" },
-    .{ tb.AccountBalance, "AccountBalance" },
-    .{ tb.QueryFilter, "QueryFilter" },
+    .{ tb.Account, "Account", "tb_account" },
+    .{ tb.Transfer, "Transfer", "tb_transfer" },
+    .{ tb.CreateAccountResult, "CreateAccountResult", "tb_create_accounts_result" },
+    .{ tb.CreateTransferResult, "CreateTransferResult", "tb_create_transfer_result" },
+    .{ tb.AccountFilter, "AccountFilter", "tb_account_filter" },
+    .{ tb.AccountBalance, "AccountBalance", "tb_account_balance" },
+    .{ tb.QueryFilter, "QueryFilter", "tb_query_filter" },
 };
 
 const mappings_all = mappings_vsr ++ mappings_state_machine;
@@ -63,10 +61,9 @@ const Buffer = struct {
 
 fn mapping_name_from_type(mappings: anytype, Type: type) ?[]const u8 {
     comptime for (mappings) |mapping| {
-        const ZigType, const ruby_name = mapping;
-
+        const ZigType = mapping[0];
         if (Type == ZigType) {
-            return ruby_name;
+            return mapping[1];
         }
     };
     return null;
@@ -129,6 +126,21 @@ fn ruby_ffi_enum_type(comptime Type: type) []const u8 {
     };
 }
 
+fn ruby_macro_accessor(comptime Type: type) []const u8 {
+    switch (@typeInfo(type)) {
+        .Bool => return "INIT_BOOL_ACCESSORS",
+        .Int => switch (@bitSizeOf(Type)) {
+            8 => return "INIT_UINT_ACCESSORS",
+            16 => return "INIT_UINT_ACCESSORS",
+            32 => return "INIT_UINT_ACCESSORS",
+            64 => return "INIT_UINT_ACCESSORS",
+            128 => return "INIT_UINT128_ACCESSORS",
+            else => @compileError("Unsupported int bit size: " ++ std.fmt.comptimePrint("{d}", .{@bitSizeOf(Type)})),
+        },
+        else => @compileError("Unsupported type: " ++ @typeName(Type)),
+    }
+}
+
 fn emit_enum(
     buffer: *Buffer,
     comptime Type: type,
@@ -168,33 +180,32 @@ fn emit_enum(
 fn emit_ruby_ffi_struct(
     buffer: *Buffer,
     comptime type_info: std.builtin.Type.Struct,
-    comptime c_name: []const u8,
+    comptime ruby_name: []const u8,
+    comptime tb_struct: []const u8,
 ) !void {
-    buffer.print("  VALUE {s}_args[{d}];\n", .{
-        c_name,
-        type_info.fields.len,
-    });
-    inline for (type_info.fields, 0..) |field, i| {
-        buffer.print("  {s}_args[{d}] = ID2SYM(rb_intern(\"{s}\"));\n", .{
-            c_name,
-            i,
-            field.name,
-        });
+    buffer.print("  DEFINE_STRUCT_INITIALIZER({s},\n", .{tb_struct});
+    inline for (type_info.fields) |field| {
+        @compileLog("field: {s} {s} {s}", .{field.name}, @typeName(field.type), @typeInfo(field.type));
+        buffer.print("  INIT_{s}_FIELD(hash, {s}, {s});\n", .{ ruby_macro_accessor(field.type), field.name, field.name });
     }
 
-    buffer.print(
-        \\
-        \\  VALUE {s}_class = rb_funcallv(rb_cData, rb_intern("define"), {d}, {s}_args);
-        \\  rb_define_const(mTigerBeetleBindings, "{s}", {s}_class);
-        \\
-        \\
-    , .{
-        c_name,
-        type_info.fields.len,
-        c_name,
-        c_name,
-        c_name,
-    });
+    if (ruby_name) {
+        @compileLog("ruby_name: {s}", .{ruby_name});
+    }
+
+    // buffer.print(
+    //     \\
+    //     \\  VALUE {s}_class = rb_funcallv(rb_cData, rb_intern("define"), {d}, {s}_args);
+    //     \\  rb_define_const(mTigerBeetleBindings, "{s}", {s}_class);
+    //     \\
+    //     \\
+    // , .{
+    //     c_name,
+    //     type_info.fields.len,
+    //     c_name,
+    //     ruby_name,
+    //     c_name,
+    // });
 }
 
 pub fn main() !void {
@@ -224,7 +235,8 @@ pub fn main() !void {
 
     // Emit enum and bitmask declarations.
     inline for (mappings_all) |type_mapping| {
-        const ZigType, const ruby_name = type_mapping;
+        const ZigType = type_mapping[0];
+        const ruby_name = type_mapping[1];
 
         switch (@typeInfo(ZigType)) {
             .Struct => |info| switch (info.layout) {
@@ -249,17 +261,14 @@ pub fn main() !void {
 
     buffer.print("  VALUE rb_cData = rb_const_get(rb_cObject, rb_intern(\"Data\"));\n\n", .{});
     inline for (mappings_all) |type_mapping| {
-        const ZigType, const ruby_name = type_mapping;
+        const ZigType = type_mapping[0];
+        const ruby_name = type_mapping[1];
 
         switch (@typeInfo(ZigType)) {
             .Struct => |info| switch (info.layout) {
                 .auto => @compileError("Invalid C struct type: " ++ @typeName(ZigType)),
                 .@"packed" => continue,
-                .@"extern" => try emit_ruby_ffi_struct(
-                    &buffer,
-                    info,
-                    ruby_name,
-                ),
+                .@"extern" => try emit_ruby_ffi_struct(&buffer, info, ruby_name, type_mapping[2]),
             },
             else => continue,
         }
