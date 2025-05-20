@@ -1468,31 +1468,32 @@ fn build_ruby_client(
         .from = options.tb_client_header,
         .path = "./src/clients/ruby/ext/tb_client/tb_client.h",
     });
+
+    const ruby_native_bindings_generator = b.addExecutable(.{
+        .name = "ruby_native_bindings",
+        .root_source_file = b.path("src/clients/ruby/ruby_native_bindings.zig"),
+        .target = b.graph.host,
+    });
+    ruby_native_bindings_generator.step.dependOn(&tb_client_header_copy.step);
+    ruby_native_bindings_generator.root_module.addImport("vsr", options.vsr_module);
+    ruby_native_bindings_generator.root_module.addOptions("vsr_options", options.vsr_options);
+    const native_bindings = Generated.file(b, .{
+        .generator = ruby_native_bindings_generator,
+        .path = "./src/clients/ruby/ext/tigerbeetle/tb_bindings.c",
+    });
     const ruby_bindings_generator = b.addExecutable(.{
         .name = "ruby_bindings",
         .root_source_file = b.path("src/clients/ruby/ruby_bindings.zig"),
         .target = b.graph.host,
     });
-    ruby_bindings_generator.step.dependOn(&tb_client_header_copy.step);
+    ruby_bindings_generator.step.dependOn(&native_bindings.step);
+    // ruby_bindings_generator.step.dependOn(&tb_client_header_copy.step);
     ruby_bindings_generator.root_module.addImport("vsr", options.vsr_module);
     ruby_bindings_generator.root_module.addOptions("vsr_options", options.vsr_options);
     const bindings = Generated.file(b, .{
         .generator = ruby_bindings_generator,
         .path = "./src/clients/ruby/lib/tigerbeetle/bindings.rb",
     });
-
-    // const ruby_native_bindings_generator = b.addExecutable(.{
-    //     .name = "ruby_native_bindings",
-    //     .root_source_file = b.path("src/clients/ruby/ruby_native_bindings.zig"),
-    //     .target = b.graph.host,
-    // });
-    // ruby_native_bindings_generator.step.dependOn(&bindings.step);
-    // ruby_native_bindings_generator.root_module.addImport("vsr", options.vsr_module);
-    // ruby_native_bindings_generator.root_module.addOptions("vsr_options", options.vsr_options);
-    // const native_bindings = Generated.file(b, .{
-    //     .generator = ruby_native_bindings_generator,
-    //     .path = "./src/clients/ruby/ext/tigerbeetle.c",
-    // });
 
     inline for (platforms) |platform| {
         const cross_target = CrossTarget.parse(.{
@@ -1528,7 +1529,6 @@ fn build_ruby_client(
     }
 
     step_clients_ruby.dependOn(&bindings.step);
-    // step_clients_ruby.dependOn(&native_bindings.step);
 }
 
 fn build_python_client(
