@@ -83,11 +83,11 @@ fn zig_to_ruby(comptime Type: type) []const u8 {
             assert(info.signedness == .unsigned);
 
             return switch (info.bits) {
-                8 => ":uint8",
-                16 => ":uint16",
-                32 => ":uint32",
-                64 => ":uint64",
-                128 => "CUint128",
+                8 => "uint8_t",
+                16 => "uint16_t",
+                32 => "uint32_t",
+                64 => "uint64_t",
+                128 => "UInt128",
                 else => @compileError("invalid int type"),
             };
         },
@@ -99,9 +99,9 @@ fn zig_to_ruby(comptime Type: type) []const u8 {
             assert(info.size == .One);
             assert(!info.is_allowzero);
 
-            return ":pointer";
+            return "void*";
         },
-        .Void => return ":void",
+        .Void => return "void",
         else => @compileError("Unhandled type: " ++ @typeName(Type)),
     }
 }
@@ -182,29 +182,61 @@ fn emit_ruby_ffi_struct(
     comptime c_name: []const u8,
 ) !void {
     buffer.print(
-        \\    class {s} < CStruct
-        \\      layout(
+        \\    {s} = struct([
         \\
     , .{c_name});
 
     inline for (type_info.fields) |field| {
         const ruby_name_map = comptime mapping_name_from_type(mappings_all, field.type);
         if (ruby_name_map) |ruby_name| {
-            buffer.print("        {s}: {s},\n", .{
-                field.name,
+            buffer.print("      {{ {s}: {s} }},\n", .{
                 ruby_name,
+                field.name,
             });
         } else {
-            buffer.print("        {s}: {s},\n", .{
+            const foo = switch (@typeInfo(field.type)) {
+                .Array => |info| {
+                    return std.fmt.comptimePrint("[{s}, {d}]", .{
+                        comptime zig_to_ruby(info.child),
+                        info.len,
+                    });
+                },
+                .Enum => return comptime mapping_name_from_type(mappings_state_machine, Type).?,
+                .Struct => return comptime mapping_name_from_type(mappings_state_machine, Type).?,
+                .Bool => return ":bool",
+                .Int => |info| {
+                    assert(info.signedness == .unsigned);
+
+                    return switch (info.bits) {
+                        8 => "Fiddle::TYPE_UINT8_T",
+                        16 => "Fiddle::TYPE_UINT16_T",
+                        32 => "Fiddle::TYPE_UINT32_T",
+                        64 => "Fiddle::TYPE_UINT64_T",
+                        128 => "UInt128",
+                        else => @compileError("invalid int type"),
+                    };
+                },
+                .Optional => |info| switch (@typeInfo(info.child)) {
+                    .Pointer => return zig_to_ruby(info.child),
+                    else => @compileError("Unsupported optional type: " ++ @typeName(Type)),
+                },
+                .Pointer => |info| {
+                    assert(info.size == .One);
+                    assert(!info.is_allowzero);
+
+                    return "Fiddle::TYPE_VOIDP";
+                },
+                else => @compileError("Unhandled type: " ++ @typeName(Type)),
+            }
+            buffer.print("      \"{s} {s}\",\n", .{
                 field.name,
-                zig_to_ruby(field.type),
+                foo,
             });
         }
     }
 
     buffer.print(
-        \\      )
-        \\    end
+        \\    ])
         \\
         \\
     , .{});
@@ -226,15 +258,17 @@ pub fn main() !void {
         \\
         \\require "fiddle"
         \\require "fiddle/import"
+        \\
         \\require_relative "shared_lib"
-        \\require_relative "c_struct"
-        \\require_relative "c_enum"
         \\
         \\module TigerBeetle
         \\  module Bindings
         \\    extend Fiddle::Importer
         \\
         \\    dlload SharedLib.path
+        \\
+        \\    UInt128 = struct(["uint64_t lo", "uint64_t hi"])
+        \\
         \\
     , .{});
 

@@ -7,6 +7,7 @@ GEM
   remote: https://rubygems.org/
   specs:
     date (3.4.1)
+    fiddle (1.1.8)
     io-console (0.8.0)
     irb (1.15.2)
       pp (>= 0.6.0)
@@ -29,6 +30,7 @@ PLATFORMS
   x86_64-linux
 
 DEPENDENCIES
+  fiddle
   irb
   tigerbeetle!
 

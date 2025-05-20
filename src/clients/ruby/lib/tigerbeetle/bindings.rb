@@ -3,11 +3,19 @@
 ##              Do not manually modify.                 ##
 ##########################################################
 
-require_relative "c_struct"
-require_relative "c_enum"
+require "fiddle"
+require "fiddle/import"
+
+require_relative "shared_lib"
 
 module TigerBeetle
   module Bindings
+    extend Fiddle::Importer
+
+    dlload SharedLib.path
+
+    UInt128 = struct(["uint64_t lo", "uint64_t hi"])
+
     class Operation < CEnum
       c_type :uint8
 
@@ -240,108 +248,96 @@ module TigerBeetle
       )
     end
 
-    class Packet < CStruct
-      layout(
-        user_data: :pointer,
-        data: :pointer,
-        data_size: :uint32,
-        user_tag: :uint16,
-        operation: :uint8,
-        status: PacketStatus,
-        opaque: [:uint8, 32],
-      )
-    end
+    Packet = struct([
+      { user_data: void* },
+      { data: void* },
+      { data_size: uint32_t },
+      { user_tag: uint16_t },
+      { operation: uint8_t },
+      "PacketStatus status",
+      { opaque: [uint8_t, 32] },
+    ])
 
-    class Account < CStruct
-      layout(
-        id: :uint128,
-        debits_pending: :uint128,
-        debits_posted: :uint128,
-        credits_pending: :uint128,
-        credits_posted: :uint128,
-        user_data_128: :uint128,
-        user_data_64: :uint64,
-        user_data_32: :uint32,
-        reserved: :uint32,
-        ledger: :uint32,
-        code: :uint16,
-        flags: AccountFlags,
-        timestamp: :uint64,
-      )
-    end
+    Client = struct([
+      { opaque: [uint64_t, 4] },
+    ])
 
-    class Transfer < CStruct
-      layout(
-        id: :uint128,
-        debit_account_id: :uint128,
-        credit_account_id: :uint128,
-        amount: :uint128,
-        pending_id: :uint128,
-        user_data_128: :uint128,
-        user_data_64: :uint64,
-        user_data_32: :uint32,
-        timeout: :uint32,
-        ledger: :uint32,
-        code: :uint16,
-        flags: TransferFlags,
-        timestamp: :uint64,
-      )
-    end
+    Account = struct([
+      { id: UInt128 },
+      { debits_pending: UInt128 },
+      { debits_posted: UInt128 },
+      { credits_pending: UInt128 },
+      { credits_posted: UInt128 },
+      { user_data_128: UInt128 },
+      { user_data_64: uint64_t },
+      { user_data_32: uint32_t },
+      { reserved: uint32_t },
+      { ledger: uint32_t },
+      { code: uint16_t },
+      "AccountFlags flags",
+      { timestamp: uint64_t },
+    ])
 
-    class CreateAccountsResult < CStruct
-      layout(
-        index: :uint32,
-        result: CreateAccountResult,
-      )
-    end
+    Transfer = struct([
+      { id: UInt128 },
+      { debit_account_id: UInt128 },
+      { credit_account_id: UInt128 },
+      { amount: UInt128 },
+      { pending_id: UInt128 },
+      { user_data_128: UInt128 },
+      { user_data_64: uint64_t },
+      { user_data_32: uint32_t },
+      { timeout: uint32_t },
+      { ledger: uint32_t },
+      { code: uint16_t },
+      "TransferFlags flags",
+      { timestamp: uint64_t },
+    ])
 
-    class CreateTransfersResult < CStruct
-      layout(
-        index: :uint32,
-        result: CreateTransferResult,
-      )
-    end
+    CreateAccountsResult = struct([
+      { index: uint32_t },
+      "CreateAccountResult result",
+    ])
 
-    class AccountFilter < CStruct
-      layout(
-        account_id: :uint128,
-        user_data_128: :uint128,
-        user_data_64: :uint64,
-        user_data_32: :uint32,
-        code: :uint16,
-        reserved: [:uint8, 58],
-        timestamp_min: :uint64,
-        timestamp_max: :uint64,
-        limit: :uint32,
-        flags: AccountFilterFlags,
-      )
-    end
+    CreateTransfersResult = struct([
+      { index: uint32_t },
+      "CreateTransferResult result",
+    ])
 
-    class AccountBalance < CStruct
-      layout(
-        debits_pending: :uint128,
-        debits_posted: :uint128,
-        credits_pending: :uint128,
-        credits_posted: :uint128,
-        timestamp: :uint64,
-        reserved: [:uint8, 56],
-      )
-    end
+    AccountFilter = struct([
+      { account_id: UInt128 },
+      { user_data_128: UInt128 },
+      { user_data_64: uint64_t },
+      { user_data_32: uint32_t },
+      { code: uint16_t },
+      { reserved: [uint8_t, 58] },
+      { timestamp_min: uint64_t },
+      { timestamp_max: uint64_t },
+      { limit: uint32_t },
+      "AccountFilterFlags flags",
+    ])
 
-    class QueryFilter < CStruct
-      layout(
-        user_data_128: :uint128,
-        user_data_64: :uint64,
-        user_data_32: :uint32,
-        ledger: :uint32,
-        code: :uint16,
-        reserved: [:uint8, 6],
-        timestamp_min: :uint64,
-        timestamp_max: :uint64,
-        limit: :uint32,
-        flags: QueryFilterFlags,
-      )
-    end
+    AccountBalance = struct([
+      { debits_pending: UInt128 },
+      { debits_posted: UInt128 },
+      { credits_pending: UInt128 },
+      { credits_posted: UInt128 },
+      { timestamp: uint64_t },
+      { reserved: [uint8_t, 56] },
+    ])
+
+    QueryFilter = struct([
+      { user_data_128: UInt128 },
+      { user_data_64: uint64_t },
+      { user_data_32: uint32_t },
+      { ledger: uint32_t },
+      { code: uint16_t },
+      { reserved: [uint8_t, 6] },
+      { timestamp_min: uint64_t },
+      { timestamp_max: uint64_t },
+      { limit: uint32_t },
+      "QueryFilterFlags flags",
+    ])
 
     # callback :init_completion, [:uint, Packet.by_ref, :uint64, :pointer, :uint32], :void
     # callback :log_handler, [LogLevel, :pointer, :uint32], :void
