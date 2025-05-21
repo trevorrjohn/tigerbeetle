@@ -6,20 +6,22 @@
 #include <stdint.h>
 #include <inttypes.h> // For PRIx64
 
+#define STRLEN(x) strlen(x)
+
 #define DEFINE_RB_CLASS_FOR_STRUCT(type) \
   static size_t rb_##type##_size(const void *ptr) { \
-      return sizeof(type##_t); \
+    return sizeof(type##_t); \
   } \
   \
   static const rb_data_type_t type##_type = { \
-      .wrap_struct_name = #type, \
-      .function = { \
-          .dmark = NULL, \
-          .dfree = RUBY_DEFAULT_FREE, \
-          .dsize = rb_##type##_size, \
-      }, \
-      .data = NULL, \
-      .flags = RUBY_TYPED_FREE_IMMEDIATELY, \
+    .wrap_struct_name = #type, \
+    .function = { \
+      .dmark = NULL, \
+      .dfree = RUBY_DEFAULT_FREE, \
+      .dsize = rb_##type##_size, \
+    }, \
+    .data = NULL, \
+    .flags = RUBY_TYPED_FREE_IMMEDIATELY, \
   }; \
   \
   static VALUE rb_##type##_alloc(VALUE self) { \
@@ -28,6 +30,35 @@
   } \
   \
   static VALUE rb_##type##_initialize(int argc, VALUE* argv, VALUE self) { \
+    VALUE kwargs; \
+    rb_scan_args(argc, argv, ":", &kwargs); \
+    \
+    if (NIL_P(kwargs)) { \
+      return self; \
+    } \
+    \
+    type##_t *wrapper; \
+    TypedData_Get_Struct(self, type##_t, &type##_type, wrapper); \
+    \
+    VALUE keys = rb_funcall(kwargs, rb_intern("keys"), 0); \
+    long num_keys = RARRAY_LEN(keys);\
+    for (long i = 0; i < num_keys; i++) { \
+        VALUE rb_key = RARRAY_AREF(keys, i); \
+        VALUE value = rb_hash_aref(kwargs, rb_key);\
+        char* field_name = StringValueCStr(rb_key); \
+        size_t field_len = strlen(field_name); \
+        /* rb_##type##_set_##field_name*/ \
+        /* 3 + type size + 5 + field_name _*/ \
+        size_t total_len = 3 + STRLEN(#type) + 5 + field_len; \
+        char* rb_method_name = malloc(total_len); \
+        if (rb_method_name == NULL) { \
+            rb_raise(rb_eNoMemError, "Failed to allocate memory for method name"); \
+        } \
+        snprintf(rb_method_name, total_len, "rb_##type##_set_%s", field_name); \
+        rb_funcall(self, rb_intern(rb_method_name), 1, value); \
+        free(rb_method_name); \
+    } \
+    \
     return self; \
   } \
 

@@ -3,13 +3,9 @@
 require_relative "bindings"
 
 module TigerBeetle
-  class Account < Bindings::Account
-
+  class Account
     def initialize(params = {})
       @params = params
-    end
-
-    def to_c_struct
     end
   end
 end
