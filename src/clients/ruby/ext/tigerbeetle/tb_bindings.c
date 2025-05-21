@@ -5,13 +5,11 @@
 
 #include <ruby.h>
 #include "tb_client.h"
-#include "tigerbeetle/shared.c"
+#include "tb_macros.h"
 
-void Init_tigerbeetle() {
-  VALUE mTigerBeetle = rb_define_module("TigerBeetle");
-  VALUE mTigerBeetleBindings = rb_define_module_under(mTigerBeetle, "Bindings");
+void tb_define_enums_and_bitmasks(VALUE module) {
 
-  VALUE mOperation = rb_define_module_under(mTigerBeetleBindings, "Operation");
+  VALUE mOperation = rb_define_module_under(module, "Operation");
   rb_define_const(mOperation, "PULSE", INT2NUM(128));
   rb_define_const(mOperation, "GET_EVENTS", INT2NUM(137));
   rb_define_const(mOperation, "CREATE_ACCOUNTS", INT2NUM(138));
@@ -23,7 +21,7 @@ void Init_tigerbeetle() {
   rb_define_const(mOperation, "QUERY_ACCOUNTS", INT2NUM(144));
   rb_define_const(mOperation, "QUERY_TRANSFERS", INT2NUM(145));
 
-  VALUE mPacketStatus = rb_define_module_under(mTigerBeetleBindings, "PacketStatus");
+  VALUE mPacketStatus = rb_define_module_under(module, "PacketStatus");
   rb_define_const(mPacketStatus, "OK", INT2NUM(0));
   rb_define_const(mPacketStatus, "TOO_MUCH_DATA", INT2NUM(1));
   rb_define_const(mPacketStatus, "CLIENT_EVICTED", INT2NUM(2));
@@ -33,7 +31,7 @@ void Init_tigerbeetle() {
   rb_define_const(mPacketStatus, "INVALID_OPERATION", INT2NUM(6));
   rb_define_const(mPacketStatus, "INVALID_DATA_SIZE", INT2NUM(7));
 
-  VALUE mInitStatus = rb_define_module_under(mTigerBeetleBindings, "InitStatus");
+  VALUE mInitStatus = rb_define_module_under(module, "InitStatus");
   rb_define_const(mInitStatus, "SUCCESS", INT2NUM(0));
   rb_define_const(mInitStatus, "UNEXPECTED", INT2NUM(1));
   rb_define_const(mInitStatus, "OUT_OF_MEMORY", INT2NUM(2));
@@ -42,22 +40,22 @@ void Init_tigerbeetle() {
   rb_define_const(mInitStatus, "SYSTEM_RESOURCES", INT2NUM(5));
   rb_define_const(mInitStatus, "NETWORK_SUBSYSTEM", INT2NUM(6));
 
-  VALUE mClientStatus = rb_define_module_under(mTigerBeetleBindings, "ClientStatus");
+  VALUE mClientStatus = rb_define_module_under(module, "ClientStatus");
   rb_define_const(mClientStatus, "OK", INT2NUM(0));
   rb_define_const(mClientStatus, "INVALID", INT2NUM(1));
 
-  VALUE mLogLevel = rb_define_module_under(mTigerBeetleBindings, "LogLevel");
+  VALUE mLogLevel = rb_define_module_under(module, "LogLevel");
   rb_define_const(mLogLevel, "ERR", INT2NUM(0));
   rb_define_const(mLogLevel, "WARN", INT2NUM(1));
   rb_define_const(mLogLevel, "INFO", INT2NUM(2));
   rb_define_const(mLogLevel, "DEBUG", INT2NUM(3));
 
-  VALUE mRegisterLogCallbackStatus = rb_define_module_under(mTigerBeetleBindings, "RegisterLogCallbackStatus");
+  VALUE mRegisterLogCallbackStatus = rb_define_module_under(module, "RegisterLogCallbackStatus");
   rb_define_const(mRegisterLogCallbackStatus, "SUCCESS", INT2NUM(0));
   rb_define_const(mRegisterLogCallbackStatus, "ALREADY_REGISTERED", INT2NUM(1));
   rb_define_const(mRegisterLogCallbackStatus, "NOT_REGISTERED", INT2NUM(2));
 
-  VALUE mAccountFlags = rb_define_module_under(mTigerBeetleBindings, "AccountFlags");
+  VALUE mAccountFlags = rb_define_module_under(module, "AccountFlags");
   rb_define_const(mAccountFlags, "LINKED", INT2NUM(1 << 0));
   rb_define_const(mAccountFlags, "DEBITS_MUST_NOT_EXCEED_CREDITS", INT2NUM(1 << 1));
   rb_define_const(mAccountFlags, "CREDITS_MUST_NOT_EXCEED_DEBITS", INT2NUM(1 << 2));
@@ -65,7 +63,7 @@ void Init_tigerbeetle() {
   rb_define_const(mAccountFlags, "IMPORTED", INT2NUM(1 << 4));
   rb_define_const(mAccountFlags, "CLOSED", INT2NUM(1 << 5));
 
-  VALUE mTransferFlags = rb_define_module_under(mTigerBeetleBindings, "TransferFlags");
+  VALUE mTransferFlags = rb_define_module_under(module, "TransferFlags");
   rb_define_const(mTransferFlags, "LINKED", INT2NUM(1 << 0));
   rb_define_const(mTransferFlags, "PENDING", INT2NUM(1 << 1));
   rb_define_const(mTransferFlags, "POST_PENDING_TRANSFER", INT2NUM(1 << 2));
@@ -76,15 +74,15 @@ void Init_tigerbeetle() {
   rb_define_const(mTransferFlags, "CLOSING_CREDIT", INT2NUM(1 << 7));
   rb_define_const(mTransferFlags, "IMPORTED", INT2NUM(1 << 8));
 
-  VALUE mAccountFilterFlags = rb_define_module_under(mTigerBeetleBindings, "AccountFilterFlags");
+  VALUE mAccountFilterFlags = rb_define_module_under(module, "AccountFilterFlags");
   rb_define_const(mAccountFilterFlags, "DEBITS", INT2NUM(1 << 0));
   rb_define_const(mAccountFilterFlags, "CREDITS", INT2NUM(1 << 1));
   rb_define_const(mAccountFilterFlags, "REVERSED", INT2NUM(1 << 2));
 
-  VALUE mQueryFilterFlags = rb_define_module_under(mTigerBeetleBindings, "QueryFilterFlags");
+  VALUE mQueryFilterFlags = rb_define_module_under(module, "QueryFilterFlags");
   rb_define_const(mQueryFilterFlags, "REVERSED", INT2NUM(1 << 0));
 
-  VALUE mCreateAccountResult = rb_define_module_under(mTigerBeetleBindings, "CreateAccountResult");
+  VALUE mCreateAccountResult = rb_define_module_under(module, "CreateAccountResult");
   rb_define_const(mCreateAccountResult, "OK", INT2NUM(0));
   rb_define_const(mCreateAccountResult, "LINKED_EVENT_FAILED", INT2NUM(1));
   rb_define_const(mCreateAccountResult, "LINKED_EVENT_CHAIN_OPEN", INT2NUM(2));
@@ -113,7 +111,7 @@ void Init_tigerbeetle() {
   rb_define_const(mCreateAccountResult, "CODE_MUST_NOT_BE_ZERO", INT2NUM(14));
   rb_define_const(mCreateAccountResult, "IMPORTED_EVENT_TIMESTAMP_MUST_NOT_REGRESS", INT2NUM(26));
 
-  VALUE mCreateTransferResult = rb_define_module_under(mTigerBeetleBindings, "CreateTransferResult");
+  VALUE mCreateTransferResult = rb_define_module_under(module, "CreateTransferResult");
   rb_define_const(mCreateTransferResult, "OK", INT2NUM(0));
   rb_define_const(mCreateTransferResult, "LINKED_EVENT_FAILED", INT2NUM(1));
   rb_define_const(mCreateTransferResult, "LINKED_EVENT_CHAIN_OPEN", INT2NUM(2));
@@ -183,101 +181,172 @@ void Init_tigerbeetle() {
   rb_define_const(mCreateTransferResult, "EXCEEDS_CREDITS", INT2NUM(54));
   rb_define_const(mCreateTransferResult, "EXCEEDS_DEBITS", INT2NUM(55));
 
-  VALUE rb_cData = rb_const_get(rb_cObject, rb_intern("Data"));
+}
 
-  VALUE tb_packet_t_args[7];
-  tb_packet_t_args[0] = ID2SYM(rb_intern("user_data"));
-  tb_packet_t_args[1] = ID2SYM(rb_intern("data"));
-  tb_packet_t_args[2] = ID2SYM(rb_intern("data_size"));
-  tb_packet_t_args[3] = ID2SYM(rb_intern("user_tag"));
-  tb_packet_t_args[4] = ID2SYM(rb_intern("operation"));
-  tb_packet_t_args[5] = ID2SYM(rb_intern("status"));
-  tb_packet_t_args[6] = ID2SYM(rb_intern("opaque"));
+// Packet - tb_packet
+DEFINE_RB_CLASS_FOR_STRUCT(tb_packet)
+DEFINE_VOID_PTR_ACCESSORS(tb_packet, user_data)
+DEFINE_VOID_PTR_ACCESSORS(tb_packet, data)
+DEFINE_UINT_ACCESSORS(tb_packet, uint32_t, data_size)
+DEFINE_UINT_ACCESSORS(tb_packet, uint16_t, user_tag)
+DEFINE_UINT_ACCESSORS(tb_packet, uint8_t, operation)
+DEFINE_UINT_ACCESSORS(tb_packet, uint8_t, status)
 
-  VALUE tb_packet_t_class = rb_funcallv(rb_cData, rb_intern("define"), 7, tb_packet_t_args);
-  rb_define_const(mTigerBeetleBindings, "Packet", tb_packet_t_class);
 
-  VALUE tb_client_t_args[1];
-  tb_client_t_args[0] = ID2SYM(rb_intern("opaque"));
+// Client - tb_client
+DEFINE_RB_CLASS_FOR_STRUCT(tb_client)
 
-  VALUE tb_client_t_class = rb_funcallv(rb_cData, rb_intern("define"), 1, tb_client_t_args);
-  rb_define_const(mTigerBeetleBindings, "Client", tb_client_t_class);
 
-  VALUE tb_account_t_args[13];
-  tb_account_t_args[0] = ID2SYM(rb_intern("id"));
-  tb_account_t_args[1] = ID2SYM(rb_intern("debits_pending"));
-  tb_account_t_args[2] = ID2SYM(rb_intern("debits_posted"));
-  tb_account_t_args[3] = ID2SYM(rb_intern("credits_pending"));
-  tb_account_t_args[4] = ID2SYM(rb_intern("credits_posted"));
-  tb_account_t_args[5] = ID2SYM(rb_intern("user_data_128"));
-  tb_account_t_args[6] = ID2SYM(rb_intern("user_data_64"));
-  tb_account_t_args[7] = ID2SYM(rb_intern("user_data_32"));
-  tb_account_t_args[8] = ID2SYM(rb_intern("reserved"));
-  tb_account_t_args[9] = ID2SYM(rb_intern("ledger"));
-  tb_account_t_args[10] = ID2SYM(rb_intern("code"));
-  tb_account_t_args[11] = ID2SYM(rb_intern("flags"));
-  tb_account_t_args[12] = ID2SYM(rb_intern("timestamp"));
+// Account - tb_account
+DEFINE_RB_CLASS_FOR_STRUCT(tb_account)
+DEFINE_UINT128_ACCESSORS(tb_account, id)
+DEFINE_UINT128_ACCESSORS(tb_account, debits_pending)
+DEFINE_UINT128_ACCESSORS(tb_account, debits_posted)
+DEFINE_UINT128_ACCESSORS(tb_account, credits_pending)
+DEFINE_UINT128_ACCESSORS(tb_account, credits_posted)
+DEFINE_UINT128_ACCESSORS(tb_account, user_data_128)
+DEFINE_UINT_ACCESSORS(tb_account, uint64_t, user_data_64)
+DEFINE_UINT_ACCESSORS(tb_account, uint32_t, user_data_32)
+DEFINE_UINT_ACCESSORS(tb_account, uint32_t, ledger)
+DEFINE_UINT_ACCESSORS(tb_account, uint16_t, code)
+DEFINE_UINT_ACCESSORS(tb_account, uint16_t, flags)
+DEFINE_UINT_ACCESSORS(tb_account, uint64_t, timestamp)
 
-  VALUE tb_account_t_class = rb_funcallv(rb_cData, rb_intern("define"), 13, tb_account_t_args);
-  rb_define_const(mTigerBeetleBindings, "Account", tb_account_t_class);
 
-  VALUE tb_transfer_t_args[13];
-  tb_transfer_t_args[0] = ID2SYM(rb_intern("id"));
-  tb_transfer_t_args[1] = ID2SYM(rb_intern("debit_account_id"));
-  tb_transfer_t_args[2] = ID2SYM(rb_intern("credit_account_id"));
-  tb_transfer_t_args[3] = ID2SYM(rb_intern("amount"));
-  tb_transfer_t_args[4] = ID2SYM(rb_intern("pending_id"));
-  tb_transfer_t_args[5] = ID2SYM(rb_intern("user_data_128"));
-  tb_transfer_t_args[6] = ID2SYM(rb_intern("user_data_64"));
-  tb_transfer_t_args[7] = ID2SYM(rb_intern("user_data_32"));
-  tb_transfer_t_args[8] = ID2SYM(rb_intern("timeout"));
-  tb_transfer_t_args[9] = ID2SYM(rb_intern("ledger"));
-  tb_transfer_t_args[10] = ID2SYM(rb_intern("code"));
-  tb_transfer_t_args[11] = ID2SYM(rb_intern("flags"));
-  tb_transfer_t_args[12] = ID2SYM(rb_intern("timestamp"));
+// Transfer - tb_transfer
+DEFINE_RB_CLASS_FOR_STRUCT(tb_transfer)
+DEFINE_UINT128_ACCESSORS(tb_transfer, id)
+DEFINE_UINT128_ACCESSORS(tb_transfer, debit_account_id)
+DEFINE_UINT128_ACCESSORS(tb_transfer, credit_account_id)
+DEFINE_UINT128_ACCESSORS(tb_transfer, amount)
+DEFINE_UINT128_ACCESSORS(tb_transfer, pending_id)
+DEFINE_UINT128_ACCESSORS(tb_transfer, user_data_128)
+DEFINE_UINT_ACCESSORS(tb_transfer, uint64_t, user_data_64)
+DEFINE_UINT_ACCESSORS(tb_transfer, uint32_t, user_data_32)
+DEFINE_UINT_ACCESSORS(tb_transfer, uint32_t, timeout)
+DEFINE_UINT_ACCESSORS(tb_transfer, uint32_t, ledger)
+DEFINE_UINT_ACCESSORS(tb_transfer, uint16_t, code)
+DEFINE_UINT_ACCESSORS(tb_transfer, uint16_t, flags)
+DEFINE_UINT_ACCESSORS(tb_transfer, uint64_t, timestamp)
 
-  VALUE tb_transfer_t_class = rb_funcallv(rb_cData, rb_intern("define"), 13, tb_transfer_t_args);
-  rb_define_const(mTigerBeetleBindings, "Transfer", tb_transfer_t_class);
 
-  VALUE tb_account_filter_t_args[10];
-  tb_account_filter_t_args[0] = ID2SYM(rb_intern("account_id"));
-  tb_account_filter_t_args[1] = ID2SYM(rb_intern("user_data_128"));
-  tb_account_filter_t_args[2] = ID2SYM(rb_intern("user_data_64"));
-  tb_account_filter_t_args[3] = ID2SYM(rb_intern("user_data_32"));
-  tb_account_filter_t_args[4] = ID2SYM(rb_intern("code"));
-  tb_account_filter_t_args[5] = ID2SYM(rb_intern("reserved"));
-  tb_account_filter_t_args[6] = ID2SYM(rb_intern("timestamp_min"));
-  tb_account_filter_t_args[7] = ID2SYM(rb_intern("timestamp_max"));
-  tb_account_filter_t_args[8] = ID2SYM(rb_intern("limit"));
-  tb_account_filter_t_args[9] = ID2SYM(rb_intern("flags"));
+// AccountFilter - tb_account_filter
+DEFINE_RB_CLASS_FOR_STRUCT(tb_account_filter)
+DEFINE_UINT128_ACCESSORS(tb_account_filter, account_id)
+DEFINE_UINT128_ACCESSORS(tb_account_filter, user_data_128)
+DEFINE_UINT_ACCESSORS(tb_account_filter, uint64_t, user_data_64)
+DEFINE_UINT_ACCESSORS(tb_account_filter, uint32_t, user_data_32)
+DEFINE_UINT_ACCESSORS(tb_account_filter, uint16_t, code)
+DEFINE_UINT_ACCESSORS(tb_account_filter, uint64_t, timestamp_min)
+DEFINE_UINT_ACCESSORS(tb_account_filter, uint64_t, timestamp_max)
+DEFINE_UINT_ACCESSORS(tb_account_filter, uint32_t, limit)
+DEFINE_UINT_ACCESSORS(tb_account_filter, uint32_t, flags)
 
-  VALUE tb_account_filter_t_class = rb_funcallv(rb_cData, rb_intern("define"), 10, tb_account_filter_t_args);
-  rb_define_const(mTigerBeetleBindings, "AccountFilter", tb_account_filter_t_class);
 
-  VALUE tb_account_balance_t_args[6];
-  tb_account_balance_t_args[0] = ID2SYM(rb_intern("debits_pending"));
-  tb_account_balance_t_args[1] = ID2SYM(rb_intern("debits_posted"));
-  tb_account_balance_t_args[2] = ID2SYM(rb_intern("credits_pending"));
-  tb_account_balance_t_args[3] = ID2SYM(rb_intern("credits_posted"));
-  tb_account_balance_t_args[4] = ID2SYM(rb_intern("timestamp"));
-  tb_account_balance_t_args[5] = ID2SYM(rb_intern("reserved"));
+// AccountBalance - tb_account_balance
+DEFINE_RB_CLASS_FOR_STRUCT(tb_account_balance)
+DEFINE_UINT128_ACCESSORS(tb_account_balance, debits_pending)
+DEFINE_UINT128_ACCESSORS(tb_account_balance, debits_posted)
+DEFINE_UINT128_ACCESSORS(tb_account_balance, credits_pending)
+DEFINE_UINT128_ACCESSORS(tb_account_balance, credits_posted)
+DEFINE_UINT_ACCESSORS(tb_account_balance, uint64_t, timestamp)
 
-  VALUE tb_account_balance_t_class = rb_funcallv(rb_cData, rb_intern("define"), 6, tb_account_balance_t_args);
-  rb_define_const(mTigerBeetleBindings, "AccountBalance", tb_account_balance_t_class);
 
-  VALUE tb_query_filter_t_args[10];
-  tb_query_filter_t_args[0] = ID2SYM(rb_intern("user_data_128"));
-  tb_query_filter_t_args[1] = ID2SYM(rb_intern("user_data_64"));
-  tb_query_filter_t_args[2] = ID2SYM(rb_intern("user_data_32"));
-  tb_query_filter_t_args[3] = ID2SYM(rb_intern("ledger"));
-  tb_query_filter_t_args[4] = ID2SYM(rb_intern("code"));
-  tb_query_filter_t_args[5] = ID2SYM(rb_intern("reserved"));
-  tb_query_filter_t_args[6] = ID2SYM(rb_intern("timestamp_min"));
-  tb_query_filter_t_args[7] = ID2SYM(rb_intern("timestamp_max"));
-  tb_query_filter_t_args[8] = ID2SYM(rb_intern("limit"));
-  tb_query_filter_t_args[9] = ID2SYM(rb_intern("flags"));
+// QueryFilter - tb_query_filter
+DEFINE_RB_CLASS_FOR_STRUCT(tb_query_filter)
+DEFINE_UINT128_ACCESSORS(tb_query_filter, user_data_128)
+DEFINE_UINT_ACCESSORS(tb_query_filter, uint64_t, user_data_64)
+DEFINE_UINT_ACCESSORS(tb_query_filter, uint32_t, user_data_32)
+DEFINE_UINT_ACCESSORS(tb_query_filter, uint32_t, ledger)
+DEFINE_UINT_ACCESSORS(tb_query_filter, uint16_t, code)
+DEFINE_UINT_ACCESSORS(tb_query_filter, uint64_t, timestamp_min)
+DEFINE_UINT_ACCESSORS(tb_query_filter, uint64_t, timestamp_max)
+DEFINE_UINT_ACCESSORS(tb_query_filter, uint32_t, limit)
+DEFINE_UINT_ACCESSORS(tb_query_filter, uint32_t, flags)
 
-  VALUE tb_query_filter_t_class = rb_funcallv(rb_cData, rb_intern("define"), 10, tb_query_filter_t_args);
-  rb_define_const(mTigerBeetleBindings, "QueryFilter", tb_query_filter_t_class);
 
+//Ruby method accessors
+void tb_define_ruby_accessors(VALUE module) {
+
+  VALUE m_Packet_klass = rb_define_class_under(module, "Packet", rb_cObject);
+  rb_define_alloc_func(m_Packet_klass, rb_tb_packet_alloc);
+  rb_define_method(m_Packet_klass, "initialize", rb_tb_packet_initialize, -1);
+  DEFINE_ACCESSORS_METHODS(tb_packet, user_data, m_Packet_klass)
+  DEFINE_ACCESSORS_METHODS(tb_packet, data, m_Packet_klass)
+  DEFINE_ACCESSORS_METHODS(tb_packet, data_size, m_Packet_klass)
+  DEFINE_ACCESSORS_METHODS(tb_packet, user_tag, m_Packet_klass)
+  DEFINE_ACCESSORS_METHODS(tb_packet, operation, m_Packet_klass)
+  DEFINE_ACCESSORS_METHODS(tb_packet, status, m_Packet_klass)
+
+  VALUE m_Client_klass = rb_define_class_under(module, "Client", rb_cObject);
+  rb_define_alloc_func(m_Client_klass, rb_tb_client_alloc);
+  rb_define_method(m_Client_klass, "initialize", rb_tb_client_initialize, -1);
+
+  VALUE m_Account_klass = rb_define_class_under(module, "Account", rb_cObject);
+  rb_define_alloc_func(m_Account_klass, rb_tb_account_alloc);
+  rb_define_method(m_Account_klass, "initialize", rb_tb_account_initialize, -1);
+  DEFINE_ACCESSORS_METHODS(tb_account, id, m_Account_klass)
+  DEFINE_ACCESSORS_METHODS(tb_account, debits_pending, m_Account_klass)
+  DEFINE_ACCESSORS_METHODS(tb_account, debits_posted, m_Account_klass)
+  DEFINE_ACCESSORS_METHODS(tb_account, credits_pending, m_Account_klass)
+  DEFINE_ACCESSORS_METHODS(tb_account, credits_posted, m_Account_klass)
+  DEFINE_ACCESSORS_METHODS(tb_account, user_data_128, m_Account_klass)
+  DEFINE_ACCESSORS_METHODS(tb_account, user_data_64, m_Account_klass)
+  DEFINE_ACCESSORS_METHODS(tb_account, user_data_32, m_Account_klass)
+  DEFINE_ACCESSORS_METHODS(tb_account, ledger, m_Account_klass)
+  DEFINE_ACCESSORS_METHODS(tb_account, code, m_Account_klass)
+  DEFINE_ACCESSORS_METHODS(tb_account, flags, m_Account_klass)
+  DEFINE_ACCESSORS_METHODS(tb_account, timestamp, m_Account_klass)
+
+  VALUE m_Transfer_klass = rb_define_class_under(module, "Transfer", rb_cObject);
+  rb_define_alloc_func(m_Transfer_klass, rb_tb_transfer_alloc);
+  rb_define_method(m_Transfer_klass, "initialize", rb_tb_transfer_initialize, -1);
+  DEFINE_ACCESSORS_METHODS(tb_transfer, id, m_Transfer_klass)
+  DEFINE_ACCESSORS_METHODS(tb_transfer, debit_account_id, m_Transfer_klass)
+  DEFINE_ACCESSORS_METHODS(tb_transfer, credit_account_id, m_Transfer_klass)
+  DEFINE_ACCESSORS_METHODS(tb_transfer, amount, m_Transfer_klass)
+  DEFINE_ACCESSORS_METHODS(tb_transfer, pending_id, m_Transfer_klass)
+  DEFINE_ACCESSORS_METHODS(tb_transfer, user_data_128, m_Transfer_klass)
+  DEFINE_ACCESSORS_METHODS(tb_transfer, user_data_64, m_Transfer_klass)
+  DEFINE_ACCESSORS_METHODS(tb_transfer, user_data_32, m_Transfer_klass)
+  DEFINE_ACCESSORS_METHODS(tb_transfer, timeout, m_Transfer_klass)
+  DEFINE_ACCESSORS_METHODS(tb_transfer, ledger, m_Transfer_klass)
+  DEFINE_ACCESSORS_METHODS(tb_transfer, code, m_Transfer_klass)
+  DEFINE_ACCESSORS_METHODS(tb_transfer, flags, m_Transfer_klass)
+  DEFINE_ACCESSORS_METHODS(tb_transfer, timestamp, m_Transfer_klass)
+
+  VALUE m_AccountFilter_klass = rb_define_class_under(module, "AccountFilter", rb_cObject);
+  rb_define_alloc_func(m_AccountFilter_klass, rb_tb_account_filter_alloc);
+  rb_define_method(m_AccountFilter_klass, "initialize", rb_tb_account_filter_initialize, -1);
+  DEFINE_ACCESSORS_METHODS(tb_account_filter, account_id, m_AccountFilter_klass)
+  DEFINE_ACCESSORS_METHODS(tb_account_filter, user_data_128, m_AccountFilter_klass)
+  DEFINE_ACCESSORS_METHODS(tb_account_filter, user_data_64, m_AccountFilter_klass)
+  DEFINE_ACCESSORS_METHODS(tb_account_filter, user_data_32, m_AccountFilter_klass)
+  DEFINE_ACCESSORS_METHODS(tb_account_filter, code, m_AccountFilter_klass)
+  DEFINE_ACCESSORS_METHODS(tb_account_filter, timestamp_min, m_AccountFilter_klass)
+  DEFINE_ACCESSORS_METHODS(tb_account_filter, timestamp_max, m_AccountFilter_klass)
+  DEFINE_ACCESSORS_METHODS(tb_account_filter, limit, m_AccountFilter_klass)
+  DEFINE_ACCESSORS_METHODS(tb_account_filter, flags, m_AccountFilter_klass)
+
+  VALUE m_AccountBalance_klass = rb_define_class_under(module, "AccountBalance", rb_cObject);
+  rb_define_alloc_func(m_AccountBalance_klass, rb_tb_account_balance_alloc);
+  rb_define_method(m_AccountBalance_klass, "initialize", rb_tb_account_balance_initialize, -1);
+  DEFINE_ACCESSORS_METHODS(tb_account_balance, debits_pending, m_AccountBalance_klass)
+  DEFINE_ACCESSORS_METHODS(tb_account_balance, debits_posted, m_AccountBalance_klass)
+  DEFINE_ACCESSORS_METHODS(tb_account_balance, credits_pending, m_AccountBalance_klass)
+  DEFINE_ACCESSORS_METHODS(tb_account_balance, credits_posted, m_AccountBalance_klass)
+  DEFINE_ACCESSORS_METHODS(tb_account_balance, timestamp, m_AccountBalance_klass)
+
+  VALUE m_QueryFilter_klass = rb_define_class_under(module, "QueryFilter", rb_cObject);
+  rb_define_alloc_func(m_QueryFilter_klass, rb_tb_query_filter_alloc);
+  rb_define_method(m_QueryFilter_klass, "initialize", rb_tb_query_filter_initialize, -1);
+  DEFINE_ACCESSORS_METHODS(tb_query_filter, user_data_128, m_QueryFilter_klass)
+  DEFINE_ACCESSORS_METHODS(tb_query_filter, user_data_64, m_QueryFilter_klass)
+  DEFINE_ACCESSORS_METHODS(tb_query_filter, user_data_32, m_QueryFilter_klass)
+  DEFINE_ACCESSORS_METHODS(tb_query_filter, ledger, m_QueryFilter_klass)
+  DEFINE_ACCESSORS_METHODS(tb_query_filter, code, m_QueryFilter_klass)
+  DEFINE_ACCESSORS_METHODS(tb_query_filter, timestamp_min, m_QueryFilter_klass)
+  DEFINE_ACCESSORS_METHODS(tb_query_filter, timestamp_max, m_QueryFilter_klass)
+  DEFINE_ACCESSORS_METHODS(tb_query_filter, limit, m_QueryFilter_klass)
+  DEFINE_ACCESSORS_METHODS(tb_query_filter, flags, m_QueryFilter_klass)
 }
