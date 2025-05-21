@@ -5,7 +5,13 @@ require_relative "bindings"
 module TigerBeetle
   class Client
     def initialize(addresses: "3000", cluster_id: 1)
-      @client = Bindings::Client.new(addresses.to_s, cluster_id.to_i)
+      @addresses = addresses.to_s
+      @cluster_id = cluster_id.to_i
+      @client = Bindings::Client.new
+    end
+
+    def connect
+      @client
     end
 
     # CreateAccounts(accounts []types.Account) ([]types.AccountEventResult, error)
