@@ -61,6 +61,7 @@ abort "#{lib_file} not found" unless File.exist?(lib_file)
 
 dir_config("tb_client", inc_dir, lib_dir)
 
+# have_header("tb_macros.h", nil, lib_dir) or abort "tb_macros.h not found"
 have_library("tb_client", "tb_client_init", "tb_client.h") or abort "tb_client library not found"
 
 append_ldflags("-Wl,-rpath,@loader_path") if platform_dir.include?("macos")

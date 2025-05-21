@@ -4,9 +4,9 @@ const exports = vsr.tb_client.exports;
 const type_mappings = vsr.tb_client.type_mappings;
 const assert = std.debug.assert;
 
-const ruby = @cImport(@cInclude("ruby/ruby.h"));
-const tb_client = @cImport(@cInclude("./ext/tb_client.h"));
-
+// const ruby = @cImport(@cInclude("ruby/ruby.h"));
+// const tb_client = @cImport(@cInclude("./ext/tb_client.h"));
+//
 const constants = vsr.constants;
 const IO = vsr.io.IO;
 
@@ -93,7 +93,7 @@ fn zig_to_ruby(comptime Type: type) []const u8 {
             };
         },
         .Optional => |info| switch (@typeInfo(info.child)) {
-            .Pointer => return zig_to_ruby(info.child),
+            .Pointer => return zig_to_ruby(@typeInfo(info.child)),
             else => @compileError("Unsupported optional type: " ++ @typeName(Type)),
         },
         .Pointer => |info| {
@@ -148,7 +148,7 @@ fn emit_enum(
     comptime ruby_name: []const u8,
     comptime skip_fields: []const []const u8,
 ) !void {
-    buffer.print("  VALUE m{s} = rb_define_module_under(mTigerBeetleBindings, \"{s}\");\n", .{ ruby_name, ruby_name });
+    buffer.print("  VALUE m{s} = rb_define_module_under(module, \"{s}\");\n", .{ ruby_name, ruby_name });
 
     inline for (type_info.fields, 0..) |field, i| {
         if (comptime std.mem.startsWith(u8, field.name, "deprecated_")) continue;
@@ -203,7 +203,6 @@ fn zig_type_to_ctype(comptime Type: type) []const u8 {
             assert(info.size == .One);
             assert(!info.is_allowzero);
 
-            @compileLog("Pointer type: {s}", .{Type});
             return "void*";
         },
         .Void => return "void",
@@ -217,86 +216,102 @@ fn emit_struct_native_extensions(
     comptime ruby_name: []const u8,
     comptime tb_struct: []const u8,
 ) !void {
-    buffer.print("  DEFINE_RB_CLASS_FOR_STRUCT({s}, {s})\n\n", .{tb_struct, ruby_name});
+    buffer.print("// {s} - {s}\n", .{ ruby_name, tb_struct });
+    buffer.print("DEFINE_RB_CLASS_FOR_STRUCT({s})\n", .{tb_struct});
     inline for (type_info.fields) |field| {
         if (comptime std.mem.startsWith(u8, field.name, "deprecated_")) continue;
         if (comptime std.mem.eql(u8, field.name, "reserved")) continue;
         if (comptime std.mem.eql(u8, field.name, "opaque")) continue;
 
-
         switch (@typeInfo(field.type)) {
             .Array => |info| {
                 buffer.print("DEFINE_BYTE_ARRAY_ACCESSORS({s}, {s}, {s}, {d})", .{
                     tb_struct,
-                    comptime zig_to_ruby(info.child),
+                    field.name,
+                    comptime zig_type_to_ctype(info.child),
                     info.len,
                 });
             },
-            .Enum => {
-                // todo how to get type from enum?
+            .Enum => |info| {
+                const tag_type = info.tag_type;
+                switch (@typeInfo(tag_type)) {
+                    .Int => {
+                        const ctype = comptime zig_type_to_ctype(tag_type);
+                        buffer.print("DEFINE_UINT_ACCESSORS({s}, {s}, {s})\n", .{
+                            tb_struct,
+                            ctype,
+                            field.name,
+                        });
+                    },
+                    else => @compileError("Unsupported enum type: " ++ @typeName(tag_type)),
+                }
             },
             .Int => |info| {
                 assert(info.signedness == .unsigned);
 
-                const ctype = switch (info.bits) {
-                    8 => "uint8_t",
-                    16 => "uint16_t",
-                    32 => "uint32_t",
-                    64 => "uint64_t",
-                    128 => "tb_uint128_t",
-                    else => @compileError("invalid int type"),
-                };
-                if (comptime std.mem.streq(u8, "tb_uint128_t", ctype)) {
-                    buffer.print("DEFINE_UINT128_ACCESSORS({s}, {s}, {s})", .{
-                        tb_struct,
-                        field.name
-                    });
+                const ctype = comptime zig_type_to_ctype(field.type);
+                if (comptime std.mem.eql(u8, "tb_uint128_t", ctype)) {
+                    buffer.print("DEFINE_UINT128_ACCESSORS({s}, {s})\n", .{ tb_struct, field.name });
                 } else {
-                    buffer.print("DEFINE_UINT_ACCESSORS({s}, {s}, {s})", .{
+                    buffer.print("DEFINE_UINT_ACCESSORS({s}, {s}, {s})\n", .{
                         tb_struct,
                         ctype,
                         field.name,
                     });
                 }
             },
-        .Optional => |info| switch (@typeInfo(info.child)) {
-            .Pointer => return zig_to_ruby(info.child),
-            else => @compileError("Unsupported optional type: " ++ @typeName(Type)),
-        },
-            .Pointer => |info| {
-                assert(info.size == .One);
-                assert(!info.is_allowzero);
-
-                @compileLog("Pointer type: {s}", .{field.name});
-                @compileLog("Pointer type: {s}", .{field.type});
-                @compileLog("Pointer type: {s}", .{@typeName(field.type)});
-                return "void*";
+            .Optional => |info| switch (@typeInfo(info.child)) {
+                .Pointer => {
+                    buffer.print("DEFINE_VOID_PTR_ACCESSORS({s}, {s})\n", .{
+                        tb_struct,
+                        field.name,
+                    });
+                },
+                else => @compileError("Unsupported optional type: " ++ @typeName(field.type)),
             },
-            else => {
-                @compileLog("Unhandled type: {s}", .{field.name});
-                @compileLog("Unhandled type: {s}", .{@typeName(field.type)});
-                @compileLog("Unhandled type: {s}", .{@typeInfo(field.type)});
-                @compileError("Unhandled type: " ++ field.name);
+            .Struct => |info| switch (info.layout) {
+                .auto => @compileError("Invalid struct type: " ++ @typeName(field.type)),
+                .@"packed" => {
+                    const backing_int = info.backing_integer.?;
+                    const ctype = comptime zig_type_to_ctype(backing_int);
+                    buffer.print("DEFINE_UINT_ACCESSORS({s}, {s}, {s})\n", .{
+                        tb_struct,
+                        ctype,
+                        field.name,
+                    });
+                },
+                .@"extern" => continue,
             },
+            else => @compileError("Unhandled type: " ++ field.name),
         }
-        //
-        // if (ruby_name) {
-        //     @compileLog("ruby_name: {s}", .{ruby_name});
-        // }
+    }
+    buffer.print("\n\n", .{});
+}
 
-        // buffer.print(
-        //     \\
-        //     \\  VALUE {s}_class = rb_funcallv(rb_cData, rb_intern("define"), {d}, {s}_args);
-        //     \\  rb_define_const(mTigerBeetleBindings, "{s}", {s}_class);
-        //     \\
-        //     \\
-        // , .{
-        //     c_name,
-        //     type_info.fields.len,
-        //     c_name,
-        //     ruby_name,
-        //     c_name,
-        // });
+fn emit_ruby_method_accessors(
+    buffer: *Buffer,
+    comptime type_info: std.builtin.Type.Struct,
+    comptime ruby_name: []const u8,
+    comptime tb_struct: []const u8,
+) !void {
+    const ruby_class = "m_" ++ ruby_name ++ "_klass";
+    buffer.print(
+        \\
+        \\  VALUE {s} = rb_define_class_under(module, "{s}", rb_cObject);
+        \\  rb_define_alloc_func({s}, rb_{s}_alloc);
+        \\  rb_define_method({s}, "initialize", rb_{s}_initialize, -1);
+        \\
+    , .{ ruby_class, ruby_name, ruby_class, tb_struct, ruby_class, tb_struct });
+    inline for (type_info.fields) |field| {
+        if (comptime std.mem.startsWith(u8, field.name, "deprecated_")) continue;
+        if (comptime std.mem.eql(u8, field.name, "reserved")) continue;
+        if (comptime std.mem.eql(u8, field.name, "opaque")) continue;
+
+        buffer.print("  DEFINE_ACCESSORS_METHODS({s}, {s}, {s})\n", .{
+            tb_struct,
+            field.name,
+            ruby_class,
+        });
     }
 }
 
@@ -318,16 +333,10 @@ pub fn main() !void {
         \\#include "tb_client.h"
         \\#include "tb_macros.h"
         \\
-        \\VALUE mTigerBeetle;
-        \\VALUE mTigerBeetleBindings;
-        \\
-        \\void tb_define_enums_and_bitmasks() {{
-        \\  if (NIL_P(mTigerBeetleBindings)) {{
-        \\     rb_raise(rb_eRuntimeError, "TigerBeetle module not initialized");
-        \\  }}
+        \\void tb_define_enums_and_bitmasks(VALUE module) {{
         \\
         \\
-        , .{});
+    , .{});
 
     // Emit enum and bitmask declarations.
     inline for (mappings_all) |type_mapping| {
@@ -348,10 +357,7 @@ pub fn main() !void {
 
                 try emit_enum(&buffer, ZigType, info, ruby_name, skip);
             },
-            else => buffer.print("{s} = {s}\n\n", .{
-                ruby_name,
-                zig_to_ruby(ZigType),
-            }),
+            else => @compileError("Invalid C struct type: " ++ @typeName(ZigType)),
         }
     }
     buffer.print("}}\n\n", .{});
@@ -369,15 +375,33 @@ pub fn main() !void {
                     const tb_struct = if (type_mapping.len > 2) type_mapping[2] else @compileError("Missing tb_struct name");
                     try emit_struct_native_extensions(&buffer, info, ruby_name, tb_struct);
                 },
-                },
+            },
             else => continue,
         }
     }
 
+    // define ruby accessors
     buffer.print(
-        \\}}
+        \\//Ruby method accessors
+        \\void tb_define_ruby_accessors(VALUE module) {{
         \\
-        , .{});
+    , .{});
+    inline for (mappings_all) |type_mapping| {
+        const ZigType = type_mapping[0];
+        const ruby_name = type_mapping[1];
 
+        switch (@typeInfo(ZigType)) {
+            .Struct => |info| switch (info.layout) {
+                .auto => @compileError("Invalid C struct type: " ++ @typeName(ZigType)),
+                .@"packed" => continue,
+                .@"extern" => {
+                    const tb_struct = if (type_mapping.len > 2) type_mapping[2] else @compileError("Missing tb_struct name");
+                    try emit_ruby_method_accessors(&buffer, info, ruby_name, tb_struct);
+                },
+            },
+            else => continue,
+        }
+    }
+    buffer.print("}}\n", .{});
     try std.io.getStdOut().writeAll(buffer.inner.items);
 }
