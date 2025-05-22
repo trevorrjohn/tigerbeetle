@@ -61,7 +61,7 @@ abort "#{lib_file} not found" unless File.exist?(lib_file)
 
 dir_config("tb_client", inc_dir, lib_dir)
 
-# have_header("tb_macros.h", nil, lib_dir) or abort "tb_macros.h not found"
+have_header("tb_bindings.h", nil, inc_dir) or abort "tb_bindings.h not found"
 have_library("tb_client", "tb_client_init", "tb_client.h") or abort "tb_client library not found"
 
 append_ldflags("-Wl,-rpath,@loader_path") if platform_dir.include?("macos")
@@ -82,6 +82,13 @@ if platform_dir.include?("macos")
 
   install-dylib:
   \t$(INSTALL_DATA) #{lib_file} $(RUBYARCHDIR)
+
+  # Preprocessing target
+  tigerbeetle.i: tigerbeetle.c
+  \t$(CC) $(CFLAGS) $(CPPFLAGS) $(DEFS) -E $< > $@
+
+  preprocess: tigerbeetle.i
+  \t@echo "Preprocessed file created: tigerbeetle.i"
 
   INSTALL_DYLIB
 
