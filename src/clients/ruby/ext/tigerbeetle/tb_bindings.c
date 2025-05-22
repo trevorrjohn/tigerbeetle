@@ -3,9 +3,8 @@
 //              Do not manually modify.                     //
 //////////////////////////////////////////////////////////////
 
-#include <ruby.h>
+#include "ruby.h"
 #include "tb_client.h"
-#include "tb_macros.h"
 
 void tb_define_enums_and_bitmasks(VALUE module) {
 
