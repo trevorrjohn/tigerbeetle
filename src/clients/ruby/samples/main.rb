@@ -1,0 +1,37 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "bundler/setup"
+require "tigerbeetle"
+
+PORT = ENV.fetch("TB_PORT", "3000").to_s
+CLUSTER_ID = ENV.fetch("TB_CLUSTER_ID", "0").to_i
+ledger = ENV.fetch("TB_LEDGER", "1").to_s
+code = ENV.fetch("TB_CODE", "0").to_s
+
+client = TigerBeetle.connect(addresses: PORT, cluster_id: CLUSTER_ID)
+
+account1 = TigerBeetle::Bindings::Account.new(
+  id: "1", ledger:, code:, flags: TigerBeetle::Bindings::AccountFlags::DEBITS_MUST_NOT_EXCEED_CREDITS
+)
+account2 = TigerBeetle::Bindings::Account.new(
+  id: "1", ledger:, code:, flags: TigerBeetle::Bindings::AccountFlags::CREDITS_MUST_NOT_EXCEED_DEBITS
+)
+
+results_queue = Queue.new
+
+client.create_accounts(account1, account2) do |results|
+  results_queue << results end
+
+results = results_queue.pop
+
+puts "Created accounts: #{results}"
+raise "missing results" if results.size != 2
+
+results.each do |result|
+  raise "result failed" if !results.success?
+end
+
+puts 'created accounts'
+
+
