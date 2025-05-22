@@ -6,12 +6,12 @@ module TigerBeetle
   class Client
     def initialize(addresses: "3000", cluster_id: 1)
       @addresses = addresses.to_s
-      @cluster_id = cluster_id.to_i
+      @cluster_id = cluster_id.to_s
       @client = Bindings::Client.new
     end
 
     def connect
-      @client
+      @client.init(addresses: @addresses, cluster_id: @cluster_id)
     end
 
     # CreateAccounts(accounts []types.Account) ([]types.AccountEventResult, error)
