@@ -1,13 +1,15 @@
 # frozen_string_literal: true
 
+require "timeout"
 require_relative "bindings"
 
 module TigerBeetle
   class Client
-    def initialize(addresses: "3000", cluster_id: 1)
+    def initialize(addresses: "3000", cluster_id: 0)
       @addresses = addresses.to_s
       @cluster_id = cluster_id.to_s
       @client = Bindings::Client.new
+      @queue = Thread::Queue.new
     end
 
     def connect
@@ -15,22 +17,34 @@ module TigerBeetle
     end
 
     # CreateAccounts(accounts []types.Account) ([]types.AccountEventResult, error)
-    def create_accounts(*accounts, &block)
-      raise ArgumentError, "Block is required" unless block_given?
-
+    def create_accounts(*accounts)
       accounts = array_wrap(accounts)
-      client.submit(Bindings::Operation::CREATE_ACCOUNTS, accounts, &block)
+
+      client.submit(Bindings::Operation::CREATE_ACCOUNTS, accounts, @queue)
+
+      @queue.pop(false, timeout: 5).tap do |result|
+        yield(result) if block_given?
+      end
     end
 
     # CreateTransfers(transfers []types.Transfer) ([]types.TransferEventResult, error)
     def create_transfers(transfers)
-      client.create_accounts(array_wrap(transfers))
     end
 
     # LookupAccounts(accountIDs []types.Uint128) ([]types.Account, error)
     # @param account_ids [Array, Integer|String] The account IDs to look up.
     def lookup_accounts(account_ids)
-      # client.lookup_accounts(array_wrap(account_ids).map(&))
+      account_ids = array_wrap(account_ids).map(&:to_s)
+
+      client.submit(Bindings::Operation::LOOKUP_ACCOUNTS, account_ids, @queue)
+
+      Timeout.timeout(5) do
+        @queue.pop.tap do |result|
+          puts "HERE HERE HERE"
+          puts result
+          yield(result) if block_given?
+        end
+      end
     end
 
     # LookupTransfers(transferIDs []types.Uint128) ([]types.Transfer, error)
