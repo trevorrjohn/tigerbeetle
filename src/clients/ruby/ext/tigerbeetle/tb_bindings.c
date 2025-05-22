@@ -216,21 +216,22 @@ static VALUE rb_tb_packet_initialize(int argc, VALUE *argv, VALUE self) {
   TypedData_Get_Struct(self, tb_packet_t, &rb_tb_packet_type, wrapper);
 
   VALUE keys = rb_funcall(kwargs, rb_intern("keys"), 0);
-  long num_keys = RARRAY_LEN(keys);
-  // strlen of setter + NULL byte
-  for (long i = 0; i < num_keys; i++) {
-      VALUE rb_key = RARRAY_AREF(keys, i);
-      VALUE value = rb_hash_aref(kwargs, rb_key);
-      const char *field_name = rb_id2name(SYM2ID(rb_key));
-      // `<field_name>=` == field length + 1 null byte
-      size_t field_len = strlen(field_name) + 2; // =\0x
-      char* rb_method_name = malloc(field_len);
-      if (rb_method_name == NULL) {
-          rb_raise(rb_eNoMemError, "Failed to allocate memory for tb_packet");
+  long keys_len = RARRAY_LEN(keys);
+
+  for (long i = 0; i < keys_len; i++) {
+      VALUE key = RARRAY_AREF(keys, i);
+      VALUE value = rb_hash_aref(kwargs, key);
+      VALUE key_str = rb_funcall(key, rb_intern("to_s"), 0);
+      const char *key_cstr = StringValueCStr(key_str);
+      size_t setter_len = strlen(key_cstr) + 2; // +1 for '=', +1 for '\0'
+      char *setter_name = ALLOCA_N(char, setter_len);
+      snprintf(setter_name, setter_len, "%s=", key_cstr);
+      ID setter_id = rb_intern(setter_name);
+      if (!rb_respond_to(self, setter_id)) {
+        rb_raise(rb_eNoMethodError, "undefined method '%s' for object", setter_name);
       }
-      snprintf(rb_method_name, field_len, "%s=", field_name);
-      rb_funcall(self, rb_intern(rb_method_name), 1, value);
-      free(rb_method_name);
+
+      rb_funcall(self, setter_id, 1, value);
   }
   return self;
 }
@@ -296,7 +297,7 @@ static VALUE rb_tb_packet_get_data_size(VALUE self) {
 static VALUE rb_tb_packet_set_data_size(VALUE self, VALUE val) {
   tb_packet_t *obj;
   TypedData_Get_Struct(self, tb_packet_t, &rb_tb_packet_type, obj);
-  obj->data_size = (uint32_t)ULL2NUM(obj->data_size);
+  obj->data_size = (uint32_t)NUM2ULL(val);
   return val;
 }
 
@@ -309,7 +310,7 @@ static VALUE rb_tb_packet_get_user_tag(VALUE self) {
 static VALUE rb_tb_packet_set_user_tag(VALUE self, VALUE val) {
   tb_packet_t *obj;
   TypedData_Get_Struct(self, tb_packet_t, &rb_tb_packet_type, obj);
-  obj->user_tag = (uint16_t)ULL2NUM(obj->user_tag);
+  obj->user_tag = (uint16_t)NUM2ULL(val);
   return val;
 }
 
@@ -322,7 +323,7 @@ static VALUE rb_tb_packet_get_operation(VALUE self) {
 static VALUE rb_tb_packet_set_operation(VALUE self, VALUE val) {
   tb_packet_t *obj;
   TypedData_Get_Struct(self, tb_packet_t, &rb_tb_packet_type, obj);
-  obj->operation = (uint8_t)ULL2NUM(obj->operation);
+  obj->operation = (uint8_t)NUM2ULL(val);
   return val;
 }
 
@@ -335,7 +336,7 @@ static VALUE rb_tb_packet_get_status(VALUE self) {
 static VALUE rb_tb_packet_set_status(VALUE self, VALUE val) {
   tb_packet_t *obj;
   TypedData_Get_Struct(self, tb_packet_t, &rb_tb_packet_type, obj);
-  obj->status = (uint8_t)ULL2NUM(obj->status);
+  obj->status = (uint8_t)NUM2ULL(val);
   return val;
 }
 
@@ -374,21 +375,22 @@ static VALUE rb_tb_client_initialize(int argc, VALUE *argv, VALUE self) {
   TypedData_Get_Struct(self, tb_client_t, &rb_tb_client_type, wrapper);
 
   VALUE keys = rb_funcall(kwargs, rb_intern("keys"), 0);
-  long num_keys = RARRAY_LEN(keys);
-  // strlen of setter + NULL byte
-  for (long i = 0; i < num_keys; i++) {
-      VALUE rb_key = RARRAY_AREF(keys, i);
-      VALUE value = rb_hash_aref(kwargs, rb_key);
-      const char *field_name = rb_id2name(SYM2ID(rb_key));
-      // `<field_name>=` == field length + 1 null byte
-      size_t field_len = strlen(field_name) + 2; // =\0x
-      char* rb_method_name = malloc(field_len);
-      if (rb_method_name == NULL) {
-          rb_raise(rb_eNoMemError, "Failed to allocate memory for tb_client");
+  long keys_len = RARRAY_LEN(keys);
+
+  for (long i = 0; i < keys_len; i++) {
+      VALUE key = RARRAY_AREF(keys, i);
+      VALUE value = rb_hash_aref(kwargs, key);
+      VALUE key_str = rb_funcall(key, rb_intern("to_s"), 0);
+      const char *key_cstr = StringValueCStr(key_str);
+      size_t setter_len = strlen(key_cstr) + 2; // +1 for '=', +1 for '\0'
+      char *setter_name = ALLOCA_N(char, setter_len);
+      snprintf(setter_name, setter_len, "%s=", key_cstr);
+      ID setter_id = rb_intern(setter_name);
+      if (!rb_respond_to(self, setter_id)) {
+        rb_raise(rb_eNoMethodError, "undefined method '%s' for object", setter_name);
       }
-      snprintf(rb_method_name, field_len, "%s=", field_name);
-      rb_funcall(self, rb_intern(rb_method_name), 1, value);
-      free(rb_method_name);
+
+      rb_funcall(self, setter_id, 1, value);
   }
   return self;
 }
@@ -428,21 +430,22 @@ static VALUE rb_tb_account_initialize(int argc, VALUE *argv, VALUE self) {
   TypedData_Get_Struct(self, tb_account_t, &rb_tb_account_type, wrapper);
 
   VALUE keys = rb_funcall(kwargs, rb_intern("keys"), 0);
-  long num_keys = RARRAY_LEN(keys);
-  // strlen of setter + NULL byte
-  for (long i = 0; i < num_keys; i++) {
-      VALUE rb_key = RARRAY_AREF(keys, i);
-      VALUE value = rb_hash_aref(kwargs, rb_key);
-      const char *field_name = rb_id2name(SYM2ID(rb_key));
-      // `<field_name>=` == field length + 1 null byte
-      size_t field_len = strlen(field_name) + 2; // =\0x
-      char* rb_method_name = malloc(field_len);
-      if (rb_method_name == NULL) {
-          rb_raise(rb_eNoMemError, "Failed to allocate memory for tb_account");
+  long keys_len = RARRAY_LEN(keys);
+
+  for (long i = 0; i < keys_len; i++) {
+      VALUE key = RARRAY_AREF(keys, i);
+      VALUE value = rb_hash_aref(kwargs, key);
+      VALUE key_str = rb_funcall(key, rb_intern("to_s"), 0);
+      const char *key_cstr = StringValueCStr(key_str);
+      size_t setter_len = strlen(key_cstr) + 2; // +1 for '=', +1 for '\0'
+      char *setter_name = ALLOCA_N(char, setter_len);
+      snprintf(setter_name, setter_len, "%s=", key_cstr);
+      ID setter_id = rb_intern(setter_name);
+      if (!rb_respond_to(self, setter_id)) {
+        rb_raise(rb_eNoMethodError, "undefined method '%s' for object", setter_name);
       }
-      snprintf(rb_method_name, field_len, "%s=", field_name);
-      rb_funcall(self, rb_intern(rb_method_name), 1, value);
-      free(rb_method_name);
+
+      rb_funcall(self, setter_id, 1, value);
   }
   return self;
 }
@@ -534,7 +537,7 @@ static VALUE rb_tb_account_get_user_data_64(VALUE self) {
 static VALUE rb_tb_account_set_user_data_64(VALUE self, VALUE val) {
   tb_account_t *obj;
   TypedData_Get_Struct(self, tb_account_t, &rb_tb_account_type, obj);
-  obj->user_data_64 = (uint64_t)ULL2NUM(obj->user_data_64);
+  obj->user_data_64 = (uint64_t)NUM2ULL(val);
   return val;
 }
 
@@ -547,7 +550,7 @@ static VALUE rb_tb_account_get_user_data_32(VALUE self) {
 static VALUE rb_tb_account_set_user_data_32(VALUE self, VALUE val) {
   tb_account_t *obj;
   TypedData_Get_Struct(self, tb_account_t, &rb_tb_account_type, obj);
-  obj->user_data_32 = (uint32_t)ULL2NUM(obj->user_data_32);
+  obj->user_data_32 = (uint32_t)NUM2ULL(val);
   return val;
 }
 
@@ -560,7 +563,7 @@ static VALUE rb_tb_account_get_ledger(VALUE self) {
 static VALUE rb_tb_account_set_ledger(VALUE self, VALUE val) {
   tb_account_t *obj;
   TypedData_Get_Struct(self, tb_account_t, &rb_tb_account_type, obj);
-  obj->ledger = (uint32_t)ULL2NUM(obj->ledger);
+  obj->ledger = (uint32_t)NUM2ULL(val);
   return val;
 }
 
@@ -573,7 +576,7 @@ static VALUE rb_tb_account_get_code(VALUE self) {
 static VALUE rb_tb_account_set_code(VALUE self, VALUE val) {
   tb_account_t *obj;
   TypedData_Get_Struct(self, tb_account_t, &rb_tb_account_type, obj);
-  obj->code = (uint16_t)ULL2NUM(obj->code);
+  obj->code = (uint16_t)NUM2ULL(val);
   return val;
 }
 
@@ -586,7 +589,7 @@ static VALUE rb_tb_account_get_flags(VALUE self) {
 static VALUE rb_tb_account_set_flags(VALUE self, VALUE val) {
   tb_account_t *obj;
   TypedData_Get_Struct(self, tb_account_t, &rb_tb_account_type, obj);
-  obj->flags = (uint16_t)ULL2NUM(obj->flags);
+  obj->flags = (uint16_t)NUM2ULL(val);
   return val;
 }
 
@@ -599,7 +602,7 @@ static VALUE rb_tb_account_get_timestamp(VALUE self) {
 static VALUE rb_tb_account_set_timestamp(VALUE self, VALUE val) {
   tb_account_t *obj;
   TypedData_Get_Struct(self, tb_account_t, &rb_tb_account_type, obj);
-  obj->timestamp = (uint64_t)ULL2NUM(obj->timestamp);
+  obj->timestamp = (uint64_t)NUM2ULL(val);
   return val;
 }
 
@@ -638,21 +641,22 @@ static VALUE rb_tb_transfer_initialize(int argc, VALUE *argv, VALUE self) {
   TypedData_Get_Struct(self, tb_transfer_t, &rb_tb_transfer_type, wrapper);
 
   VALUE keys = rb_funcall(kwargs, rb_intern("keys"), 0);
-  long num_keys = RARRAY_LEN(keys);
-  // strlen of setter + NULL byte
-  for (long i = 0; i < num_keys; i++) {
-      VALUE rb_key = RARRAY_AREF(keys, i);
-      VALUE value = rb_hash_aref(kwargs, rb_key);
-      const char *field_name = rb_id2name(SYM2ID(rb_key));
-      // `<field_name>=` == field length + 1 null byte
-      size_t field_len = strlen(field_name) + 2; // =\0x
-      char* rb_method_name = malloc(field_len);
-      if (rb_method_name == NULL) {
-          rb_raise(rb_eNoMemError, "Failed to allocate memory for tb_transfer");
+  long keys_len = RARRAY_LEN(keys);
+
+  for (long i = 0; i < keys_len; i++) {
+      VALUE key = RARRAY_AREF(keys, i);
+      VALUE value = rb_hash_aref(kwargs, key);
+      VALUE key_str = rb_funcall(key, rb_intern("to_s"), 0);
+      const char *key_cstr = StringValueCStr(key_str);
+      size_t setter_len = strlen(key_cstr) + 2; // +1 for '=', +1 for '\0'
+      char *setter_name = ALLOCA_N(char, setter_len);
+      snprintf(setter_name, setter_len, "%s=", key_cstr);
+      ID setter_id = rb_intern(setter_name);
+      if (!rb_respond_to(self, setter_id)) {
+        rb_raise(rb_eNoMethodError, "undefined method '%s' for object", setter_name);
       }
-      snprintf(rb_method_name, field_len, "%s=", field_name);
-      rb_funcall(self, rb_intern(rb_method_name), 1, value);
-      free(rb_method_name);
+
+      rb_funcall(self, setter_id, 1, value);
   }
   return self;
 }
@@ -744,7 +748,7 @@ static VALUE rb_tb_transfer_get_user_data_64(VALUE self) {
 static VALUE rb_tb_transfer_set_user_data_64(VALUE self, VALUE val) {
   tb_transfer_t *obj;
   TypedData_Get_Struct(self, tb_transfer_t, &rb_tb_transfer_type, obj);
-  obj->user_data_64 = (uint64_t)ULL2NUM(obj->user_data_64);
+  obj->user_data_64 = (uint64_t)NUM2ULL(val);
   return val;
 }
 
@@ -757,7 +761,7 @@ static VALUE rb_tb_transfer_get_user_data_32(VALUE self) {
 static VALUE rb_tb_transfer_set_user_data_32(VALUE self, VALUE val) {
   tb_transfer_t *obj;
   TypedData_Get_Struct(self, tb_transfer_t, &rb_tb_transfer_type, obj);
-  obj->user_data_32 = (uint32_t)ULL2NUM(obj->user_data_32);
+  obj->user_data_32 = (uint32_t)NUM2ULL(val);
   return val;
 }
 
@@ -770,7 +774,7 @@ static VALUE rb_tb_transfer_get_timeout(VALUE self) {
 static VALUE rb_tb_transfer_set_timeout(VALUE self, VALUE val) {
   tb_transfer_t *obj;
   TypedData_Get_Struct(self, tb_transfer_t, &rb_tb_transfer_type, obj);
-  obj->timeout = (uint32_t)ULL2NUM(obj->timeout);
+  obj->timeout = (uint32_t)NUM2ULL(val);
   return val;
 }
 
@@ -783,7 +787,7 @@ static VALUE rb_tb_transfer_get_ledger(VALUE self) {
 static VALUE rb_tb_transfer_set_ledger(VALUE self, VALUE val) {
   tb_transfer_t *obj;
   TypedData_Get_Struct(self, tb_transfer_t, &rb_tb_transfer_type, obj);
-  obj->ledger = (uint32_t)ULL2NUM(obj->ledger);
+  obj->ledger = (uint32_t)NUM2ULL(val);
   return val;
 }
 
@@ -796,7 +800,7 @@ static VALUE rb_tb_transfer_get_code(VALUE self) {
 static VALUE rb_tb_transfer_set_code(VALUE self, VALUE val) {
   tb_transfer_t *obj;
   TypedData_Get_Struct(self, tb_transfer_t, &rb_tb_transfer_type, obj);
-  obj->code = (uint16_t)ULL2NUM(obj->code);
+  obj->code = (uint16_t)NUM2ULL(val);
   return val;
 }
 
@@ -809,7 +813,7 @@ static VALUE rb_tb_transfer_get_flags(VALUE self) {
 static VALUE rb_tb_transfer_set_flags(VALUE self, VALUE val) {
   tb_transfer_t *obj;
   TypedData_Get_Struct(self, tb_transfer_t, &rb_tb_transfer_type, obj);
-  obj->flags = (uint16_t)ULL2NUM(obj->flags);
+  obj->flags = (uint16_t)NUM2ULL(val);
   return val;
 }
 
@@ -822,7 +826,7 @@ static VALUE rb_tb_transfer_get_timestamp(VALUE self) {
 static VALUE rb_tb_transfer_set_timestamp(VALUE self, VALUE val) {
   tb_transfer_t *obj;
   TypedData_Get_Struct(self, tb_transfer_t, &rb_tb_transfer_type, obj);
-  obj->timestamp = (uint64_t)ULL2NUM(obj->timestamp);
+  obj->timestamp = (uint64_t)NUM2ULL(val);
   return val;
 }
 
@@ -861,21 +865,22 @@ static VALUE rb_tb_account_filter_initialize(int argc, VALUE *argv, VALUE self) 
   TypedData_Get_Struct(self, tb_account_filter_t, &rb_tb_account_filter_type, wrapper);
 
   VALUE keys = rb_funcall(kwargs, rb_intern("keys"), 0);
-  long num_keys = RARRAY_LEN(keys);
-  // strlen of setter + NULL byte
-  for (long i = 0; i < num_keys; i++) {
-      VALUE rb_key = RARRAY_AREF(keys, i);
-      VALUE value = rb_hash_aref(kwargs, rb_key);
-      const char *field_name = rb_id2name(SYM2ID(rb_key));
-      // `<field_name>=` == field length + 1 null byte
-      size_t field_len = strlen(field_name) + 2; // =\0x
-      char* rb_method_name = malloc(field_len);
-      if (rb_method_name == NULL) {
-          rb_raise(rb_eNoMemError, "Failed to allocate memory for tb_account_filter");
+  long keys_len = RARRAY_LEN(keys);
+
+  for (long i = 0; i < keys_len; i++) {
+      VALUE key = RARRAY_AREF(keys, i);
+      VALUE value = rb_hash_aref(kwargs, key);
+      VALUE key_str = rb_funcall(key, rb_intern("to_s"), 0);
+      const char *key_cstr = StringValueCStr(key_str);
+      size_t setter_len = strlen(key_cstr) + 2; // +1 for '=', +1 for '\0'
+      char *setter_name = ALLOCA_N(char, setter_len);
+      snprintf(setter_name, setter_len, "%s=", key_cstr);
+      ID setter_id = rb_intern(setter_name);
+      if (!rb_respond_to(self, setter_id)) {
+        rb_raise(rb_eNoMethodError, "undefined method '%s' for object", setter_name);
       }
-      snprintf(rb_method_name, field_len, "%s=", field_name);
-      rb_funcall(self, rb_intern(rb_method_name), 1, value);
-      free(rb_method_name);
+
+      rb_funcall(self, setter_id, 1, value);
   }
   return self;
 }
@@ -915,7 +920,7 @@ static VALUE rb_tb_account_filter_get_user_data_64(VALUE self) {
 static VALUE rb_tb_account_filter_set_user_data_64(VALUE self, VALUE val) {
   tb_account_filter_t *obj;
   TypedData_Get_Struct(self, tb_account_filter_t, &rb_tb_account_filter_type, obj);
-  obj->user_data_64 = (uint64_t)ULL2NUM(obj->user_data_64);
+  obj->user_data_64 = (uint64_t)NUM2ULL(val);
   return val;
 }
 
@@ -928,7 +933,7 @@ static VALUE rb_tb_account_filter_get_user_data_32(VALUE self) {
 static VALUE rb_tb_account_filter_set_user_data_32(VALUE self, VALUE val) {
   tb_account_filter_t *obj;
   TypedData_Get_Struct(self, tb_account_filter_t, &rb_tb_account_filter_type, obj);
-  obj->user_data_32 = (uint32_t)ULL2NUM(obj->user_data_32);
+  obj->user_data_32 = (uint32_t)NUM2ULL(val);
   return val;
 }
 
@@ -941,7 +946,7 @@ static VALUE rb_tb_account_filter_get_code(VALUE self) {
 static VALUE rb_tb_account_filter_set_code(VALUE self, VALUE val) {
   tb_account_filter_t *obj;
   TypedData_Get_Struct(self, tb_account_filter_t, &rb_tb_account_filter_type, obj);
-  obj->code = (uint16_t)ULL2NUM(obj->code);
+  obj->code = (uint16_t)NUM2ULL(val);
   return val;
 }
 
@@ -954,7 +959,7 @@ static VALUE rb_tb_account_filter_get_timestamp_min(VALUE self) {
 static VALUE rb_tb_account_filter_set_timestamp_min(VALUE self, VALUE val) {
   tb_account_filter_t *obj;
   TypedData_Get_Struct(self, tb_account_filter_t, &rb_tb_account_filter_type, obj);
-  obj->timestamp_min = (uint64_t)ULL2NUM(obj->timestamp_min);
+  obj->timestamp_min = (uint64_t)NUM2ULL(val);
   return val;
 }
 
@@ -967,7 +972,7 @@ static VALUE rb_tb_account_filter_get_timestamp_max(VALUE self) {
 static VALUE rb_tb_account_filter_set_timestamp_max(VALUE self, VALUE val) {
   tb_account_filter_t *obj;
   TypedData_Get_Struct(self, tb_account_filter_t, &rb_tb_account_filter_type, obj);
-  obj->timestamp_max = (uint64_t)ULL2NUM(obj->timestamp_max);
+  obj->timestamp_max = (uint64_t)NUM2ULL(val);
   return val;
 }
 
@@ -980,7 +985,7 @@ static VALUE rb_tb_account_filter_get_limit(VALUE self) {
 static VALUE rb_tb_account_filter_set_limit(VALUE self, VALUE val) {
   tb_account_filter_t *obj;
   TypedData_Get_Struct(self, tb_account_filter_t, &rb_tb_account_filter_type, obj);
-  obj->limit = (uint32_t)ULL2NUM(obj->limit);
+  obj->limit = (uint32_t)NUM2ULL(val);
   return val;
 }
 
@@ -993,7 +998,7 @@ static VALUE rb_tb_account_filter_get_flags(VALUE self) {
 static VALUE rb_tb_account_filter_set_flags(VALUE self, VALUE val) {
   tb_account_filter_t *obj;
   TypedData_Get_Struct(self, tb_account_filter_t, &rb_tb_account_filter_type, obj);
-  obj->flags = (uint32_t)ULL2NUM(obj->flags);
+  obj->flags = (uint32_t)NUM2ULL(val);
   return val;
 }
 
@@ -1032,21 +1037,22 @@ static VALUE rb_tb_account_balance_initialize(int argc, VALUE *argv, VALUE self)
   TypedData_Get_Struct(self, tb_account_balance_t, &rb_tb_account_balance_type, wrapper);
 
   VALUE keys = rb_funcall(kwargs, rb_intern("keys"), 0);
-  long num_keys = RARRAY_LEN(keys);
-  // strlen of setter + NULL byte
-  for (long i = 0; i < num_keys; i++) {
-      VALUE rb_key = RARRAY_AREF(keys, i);
-      VALUE value = rb_hash_aref(kwargs, rb_key);
-      const char *field_name = rb_id2name(SYM2ID(rb_key));
-      // `<field_name>=` == field length + 1 null byte
-      size_t field_len = strlen(field_name) + 2; // =\0x
-      char* rb_method_name = malloc(field_len);
-      if (rb_method_name == NULL) {
-          rb_raise(rb_eNoMemError, "Failed to allocate memory for tb_account_balance");
+  long keys_len = RARRAY_LEN(keys);
+
+  for (long i = 0; i < keys_len; i++) {
+      VALUE key = RARRAY_AREF(keys, i);
+      VALUE value = rb_hash_aref(kwargs, key);
+      VALUE key_str = rb_funcall(key, rb_intern("to_s"), 0);
+      const char *key_cstr = StringValueCStr(key_str);
+      size_t setter_len = strlen(key_cstr) + 2; // +1 for '=', +1 for '\0'
+      char *setter_name = ALLOCA_N(char, setter_len);
+      snprintf(setter_name, setter_len, "%s=", key_cstr);
+      ID setter_id = rb_intern(setter_name);
+      if (!rb_respond_to(self, setter_id)) {
+        rb_raise(rb_eNoMethodError, "undefined method '%s' for object", setter_name);
       }
-      snprintf(rb_method_name, field_len, "%s=", field_name);
-      rb_funcall(self, rb_intern(rb_method_name), 1, value);
-      free(rb_method_name);
+
+      rb_funcall(self, setter_id, 1, value);
   }
   return self;
 }
@@ -1112,7 +1118,7 @@ static VALUE rb_tb_account_balance_get_timestamp(VALUE self) {
 static VALUE rb_tb_account_balance_set_timestamp(VALUE self, VALUE val) {
   tb_account_balance_t *obj;
   TypedData_Get_Struct(self, tb_account_balance_t, &rb_tb_account_balance_type, obj);
-  obj->timestamp = (uint64_t)ULL2NUM(obj->timestamp);
+  obj->timestamp = (uint64_t)NUM2ULL(val);
   return val;
 }
 
@@ -1151,21 +1157,22 @@ static VALUE rb_tb_query_filter_initialize(int argc, VALUE *argv, VALUE self) {
   TypedData_Get_Struct(self, tb_query_filter_t, &rb_tb_query_filter_type, wrapper);
 
   VALUE keys = rb_funcall(kwargs, rb_intern("keys"), 0);
-  long num_keys = RARRAY_LEN(keys);
-  // strlen of setter + NULL byte
-  for (long i = 0; i < num_keys; i++) {
-      VALUE rb_key = RARRAY_AREF(keys, i);
-      VALUE value = rb_hash_aref(kwargs, rb_key);
-      const char *field_name = rb_id2name(SYM2ID(rb_key));
-      // `<field_name>=` == field length + 1 null byte
-      size_t field_len = strlen(field_name) + 2; // =\0x
-      char* rb_method_name = malloc(field_len);
-      if (rb_method_name == NULL) {
-          rb_raise(rb_eNoMemError, "Failed to allocate memory for tb_query_filter");
+  long keys_len = RARRAY_LEN(keys);
+
+  for (long i = 0; i < keys_len; i++) {
+      VALUE key = RARRAY_AREF(keys, i);
+      VALUE value = rb_hash_aref(kwargs, key);
+      VALUE key_str = rb_funcall(key, rb_intern("to_s"), 0);
+      const char *key_cstr = StringValueCStr(key_str);
+      size_t setter_len = strlen(key_cstr) + 2; // +1 for '=', +1 for '\0'
+      char *setter_name = ALLOCA_N(char, setter_len);
+      snprintf(setter_name, setter_len, "%s=", key_cstr);
+      ID setter_id = rb_intern(setter_name);
+      if (!rb_respond_to(self, setter_id)) {
+        rb_raise(rb_eNoMethodError, "undefined method '%s' for object", setter_name);
       }
-      snprintf(rb_method_name, field_len, "%s=", field_name);
-      rb_funcall(self, rb_intern(rb_method_name), 1, value);
-      free(rb_method_name);
+
+      rb_funcall(self, setter_id, 1, value);
   }
   return self;
 }
@@ -1192,7 +1199,7 @@ static VALUE rb_tb_query_filter_get_user_data_64(VALUE self) {
 static VALUE rb_tb_query_filter_set_user_data_64(VALUE self, VALUE val) {
   tb_query_filter_t *obj;
   TypedData_Get_Struct(self, tb_query_filter_t, &rb_tb_query_filter_type, obj);
-  obj->user_data_64 = (uint64_t)ULL2NUM(obj->user_data_64);
+  obj->user_data_64 = (uint64_t)NUM2ULL(val);
   return val;
 }
 
@@ -1205,7 +1212,7 @@ static VALUE rb_tb_query_filter_get_user_data_32(VALUE self) {
 static VALUE rb_tb_query_filter_set_user_data_32(VALUE self, VALUE val) {
   tb_query_filter_t *obj;
   TypedData_Get_Struct(self, tb_query_filter_t, &rb_tb_query_filter_type, obj);
-  obj->user_data_32 = (uint32_t)ULL2NUM(obj->user_data_32);
+  obj->user_data_32 = (uint32_t)NUM2ULL(val);
   return val;
 }
 
@@ -1218,7 +1225,7 @@ static VALUE rb_tb_query_filter_get_ledger(VALUE self) {
 static VALUE rb_tb_query_filter_set_ledger(VALUE self, VALUE val) {
   tb_query_filter_t *obj;
   TypedData_Get_Struct(self, tb_query_filter_t, &rb_tb_query_filter_type, obj);
-  obj->ledger = (uint32_t)ULL2NUM(obj->ledger);
+  obj->ledger = (uint32_t)NUM2ULL(val);
   return val;
 }
 
@@ -1231,7 +1238,7 @@ static VALUE rb_tb_query_filter_get_code(VALUE self) {
 static VALUE rb_tb_query_filter_set_code(VALUE self, VALUE val) {
   tb_query_filter_t *obj;
   TypedData_Get_Struct(self, tb_query_filter_t, &rb_tb_query_filter_type, obj);
-  obj->code = (uint16_t)ULL2NUM(obj->code);
+  obj->code = (uint16_t)NUM2ULL(val);
   return val;
 }
 
@@ -1244,7 +1251,7 @@ static VALUE rb_tb_query_filter_get_timestamp_min(VALUE self) {
 static VALUE rb_tb_query_filter_set_timestamp_min(VALUE self, VALUE val) {
   tb_query_filter_t *obj;
   TypedData_Get_Struct(self, tb_query_filter_t, &rb_tb_query_filter_type, obj);
-  obj->timestamp_min = (uint64_t)ULL2NUM(obj->timestamp_min);
+  obj->timestamp_min = (uint64_t)NUM2ULL(val);
   return val;
 }
 
@@ -1257,7 +1264,7 @@ static VALUE rb_tb_query_filter_get_timestamp_max(VALUE self) {
 static VALUE rb_tb_query_filter_set_timestamp_max(VALUE self, VALUE val) {
   tb_query_filter_t *obj;
   TypedData_Get_Struct(self, tb_query_filter_t, &rb_tb_query_filter_type, obj);
-  obj->timestamp_max = (uint64_t)ULL2NUM(obj->timestamp_max);
+  obj->timestamp_max = (uint64_t)NUM2ULL(val);
   return val;
 }
 
@@ -1270,7 +1277,7 @@ static VALUE rb_tb_query_filter_get_limit(VALUE self) {
 static VALUE rb_tb_query_filter_set_limit(VALUE self, VALUE val) {
   tb_query_filter_t *obj;
   TypedData_Get_Struct(self, tb_query_filter_t, &rb_tb_query_filter_type, obj);
-  obj->limit = (uint32_t)ULL2NUM(obj->limit);
+  obj->limit = (uint32_t)NUM2ULL(val);
   return val;
 }
 
@@ -1283,7 +1290,7 @@ static VALUE rb_tb_query_filter_get_flags(VALUE self) {
 static VALUE rb_tb_query_filter_set_flags(VALUE self, VALUE val) {
   tb_query_filter_t *obj;
   TypedData_Get_Struct(self, tb_query_filter_t, &rb_tb_query_filter_type, obj);
-  obj->flags = (uint32_t)ULL2NUM(obj->flags);
+  obj->flags = (uint32_t)NUM2ULL(val);
   return val;
 }
 

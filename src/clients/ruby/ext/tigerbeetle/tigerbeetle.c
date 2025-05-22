@@ -82,18 +82,61 @@ void completion_callback(uintptr_t ctx, tb_packet_t* packet, uint64_t timestamp,
 }
 
 VALUE rb_tb_client_submit(int argc, VALUE *argv, VALUE self) {
-  VALUE kwargs;
-  rb_scan_args(argc, argv, ":", &kwargs);
+  VALUE rb_operation, rb_data_array;
+  VALUE rb_block = Qnil;
+  rb_scan_args(argc, argv, "2&", &rb_operation, &rb_data_array, &rb_block);
+
+  Check_Type(rb_operation, T_FIXNUM);
+  Check_Type(rb_data_array, T_ARRAY);
+  rb_need_block();
 
   tb_client_t *client;
   TypedData_Get_Struct(self, tb_client_t, &rb_tb_client_type, client);
 
-  tb_packet_t *packet;
-  VALUE rb_packet = rb_hash_aref(kwargs, ID2SYM(rb_intern("packet")));
-  TypedData_Get_Struct(rb_packet, tb_packet_t, &rb_tb_packet_type, packet);
-  if (packet == NULL) {
-    rb_raise(rb_eArgError, "rb_data must not be nil");
+  if (client == NULL)  {
+    rb_raise(rb_eRuntimeError, "tb_client_t was not initialized");
+    return Qnil;
   }
+
+  uint8_t operation = (uint8_t)NUM2UINT(rb_operation);
+  void* data;
+  uint32_t data_size = 0;
+  long data_array_size = RARRAY_LEN(rb_data_array);
+  if (data_array_size > (long)MAX_BATCH_SIZE) {
+    rb_raise(rb_eArgError, "Data batch exceeds max batch size %ld", data_array_size);
+    return Qnil;
+  }
+
+  VALUE item;
+  switch((TB_OPERATION)operation) {
+    case TB_OPERATION_CREATE_ACCOUNTS:
+      data_size = (uint32_t)sizeof(tb_account_t) * (uint32_t)data_array_size;
+      data = malloc(data_size);
+      tb_account_t* account_t;
+      for (int i = 0; i < (int)data_array_size; i++) {
+        item = rb_ary_entry(rb_data_array, i);
+
+        TypedData_Get_Struct(item, tb_account_t, &rb_tb_account_type, account_t);
+        if (account_t == NULL) {
+          rb_raise(rb_eTypeError, "Invalid data at %d, expecting Account", (int)i);
+          return Qnil;
+        }
+        memcpy(((tb_account_t*)data + (i * sizeof(tb_account_t))), account_t, sizeof(tb_account_t));
+      }
+    break;
+    default:
+      rb_raise(rb_eRuntimeError, "Operation Not yet implemented: %d", operation);
+      break;
+
+  }
+
+  tb_packet_t *packet = (tb_packet_t*)malloc(sizeof(tb_packet_t));
+  if (packet == NULL) {
+    rb_raise(rb_eNoMemError, "Out of memory");
+  }
+  packet->data = data;
+  packet->data_size = data_size;
+  packet->operation = operation;
   TB_CLIENT_STATUS status = tb_client_submit(client, packet);
 
   switch(status) {
