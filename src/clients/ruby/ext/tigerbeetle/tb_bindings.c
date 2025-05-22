@@ -3,8 +3,9 @@
 //              Do not manually modify.                     //
 //////////////////////////////////////////////////////////////
 
-#include "ruby.h"
+#include <ruby.h>
 #include "tb_client.h"
+#include "tb_helpers.h"
 
 void tb_define_enums_and_bitmasks(VALUE module) {
 
@@ -182,86 +183,1110 @@ void tb_define_enums_and_bitmasks(VALUE module) {
 
 }
 
-// Packet - tb_packet
-DEFINE_RB_CLASS_FOR_STRUCT(tb_packet)
-DEFINE_VOID_PTR_ACCESSORS(tb_packet, user_data)
-DEFINE_VOID_PTR_ACCESSORS(tb_packet, data)
-DEFINE_UINT_ACCESSORS(tb_packet, uint32_t, data_size)
-DEFINE_UINT_ACCESSORS(tb_packet, uint16_t, user_tag)
-DEFINE_UINT_ACCESSORS(tb_packet, uint8_t, operation)
-DEFINE_UINT_ACCESSORS(tb_packet, uint8_t, status)
+// Definitions: Packet - tb_packet_t
+static size_t rb_tb_packet_size(const void *ptr) {
+  return sizeof(tb_packet_t);
+}
+
+const rb_data_type_t rb_tb_packet_type = {
+  .wrap_struct_name = "tb_packet_t",
+  .function = {
+    .dmark = NULL,
+    .dfree = RUBY_DEFAULT_FREE,
+    .dsize = rb_tb_packet_size,
+  },
+  .data = NULL,
+  .flags = RUBY_TYPED_FREE_IMMEDIATELY,
+};
+
+static VALUE rb_tb_packet_alloc(VALUE self) {
+  tb_packet_t *ptr;
+  return TypedData_Make_Struct(self, tb_packet_t, &rb_tb_packet_type, ptr);
+}
+
+static VALUE rb_tb_packet_initialize(int argc, VALUE *argv, VALUE self) {
+  VALUE kwargs;
+  rb_scan_args(argc, argv, ":", &kwargs);
+
+  if (NIL_P(kwargs)) {
+    return self;
+  }
+
+  tb_packet_t *wrapper;
+  TypedData_Get_Struct(self, tb_packet_t, &rb_tb_packet_type, wrapper);
+
+  VALUE keys = rb_funcall(kwargs, rb_intern("keys"), 0);
+  long num_keys = RARRAY_LEN(keys);
+  // strlen of setter + NULL byte
+  for (long i = 0; i < num_keys; i++) {
+      VALUE rb_key = RARRAY_AREF(keys, i);
+      VALUE value = rb_hash_aref(kwargs, rb_key);
+      const char *field_name = rb_id2name(SYM2ID(rb_key));
+      // `<field_name>=` == field length + 1 null byte
+      size_t field_len = strlen(field_name) + 2; // =\0x
+      char* rb_method_name = malloc(field_len);
+      if (rb_method_name == NULL) {
+          rb_raise(rb_eNoMemError, "Failed to allocate memory for tb_packet");
+      }
+      snprintf(rb_method_name, field_len, "%s=", field_name);
+      rb_funcall(self, rb_intern(rb_method_name), 1, value);
+      free(rb_method_name);
+  }
+  return self;
+}
+
+static VALUE rb_tb_packet_get_user_data(VALUE self) {
+  rb_raise(rb_eRuntimeError, "Cannot access void* field - user_data");
+  return Qnil;
+}
+
+static VALUE rb_tb_packet_set_user_data(VALUE self, VALUE val) {
+  if (NIL_P(val)) {
+    rb_raise(rb_eTypeError, "Expected a non nil value");
+    return Qnil;
+  }
+  if (!RB_TYPE_P(val, T_STRING)) {
+    rb_raise(rb_eTypeError, "Expected a straing");
+  }
+  tb_packet_t *obj;
+  TypedData_Get_Struct(self, tb_packet_t, &rb_tb_packet_type, obj);
+  if (obj->user_data != NULL) {
+    rb_raise(rb_eRuntimeError, "Void* field is already set");
+    return Qnil;
+  }
+  size_t data_size = (size_t)RSTRING_LEN(val);
+  char *data = (char*)malloc(data_size);
+  memcpy(data, RSTRING_PTR(val), data_size);
+  obj->user_data = data;
+  return val;
+}
+
+static VALUE rb_tb_packet_get_data(VALUE self) {
+  rb_raise(rb_eRuntimeError, "Cannot access void* field - data");
+  return Qnil;
+}
+
+static VALUE rb_tb_packet_set_data(VALUE self, VALUE val) {
+  if (NIL_P(val)) {
+    rb_raise(rb_eTypeError, "Expected a non nil value");
+    return Qnil;
+  }
+  if (!RB_TYPE_P(val, T_STRING)) {
+    rb_raise(rb_eTypeError, "Expected a straing");
+  }
+  tb_packet_t *obj;
+  TypedData_Get_Struct(self, tb_packet_t, &rb_tb_packet_type, obj);
+  if (obj->data != NULL) {
+    rb_raise(rb_eRuntimeError, "Void* field is already set");
+    return Qnil;
+  }
+  size_t data_size = (size_t)RSTRING_LEN(val);
+  char *data = (char*)malloc(data_size);
+  memcpy(data, RSTRING_PTR(val), data_size);
+  obj->data = data;
+  return val;
+}
+
+static VALUE rb_tb_packet_get_data_size(VALUE self) {
+  tb_packet_t *obj;
+  TypedData_Get_Struct(self, tb_packet_t, &rb_tb_packet_type, obj);
+  return ULL2NUM(obj->data_size);
+}
+
+static VALUE rb_tb_packet_set_data_size(VALUE self, VALUE val) {
+  tb_packet_t *obj;
+  TypedData_Get_Struct(self, tb_packet_t, &rb_tb_packet_type, obj);
+  obj->data_size = (uint32_t)ULL2NUM(obj->data_size);
+  return val;
+}
+
+static VALUE rb_tb_packet_get_user_tag(VALUE self) {
+  tb_packet_t *obj;
+  TypedData_Get_Struct(self, tb_packet_t, &rb_tb_packet_type, obj);
+  return ULL2NUM(obj->user_tag);
+}
+
+static VALUE rb_tb_packet_set_user_tag(VALUE self, VALUE val) {
+  tb_packet_t *obj;
+  TypedData_Get_Struct(self, tb_packet_t, &rb_tb_packet_type, obj);
+  obj->user_tag = (uint16_t)ULL2NUM(obj->user_tag);
+  return val;
+}
+
+static VALUE rb_tb_packet_get_operation(VALUE self) {
+  tb_packet_t *obj;
+  TypedData_Get_Struct(self, tb_packet_t, &rb_tb_packet_type, obj);
+  return ULL2NUM(obj->operation);
+}
+
+static VALUE rb_tb_packet_set_operation(VALUE self, VALUE val) {
+  tb_packet_t *obj;
+  TypedData_Get_Struct(self, tb_packet_t, &rb_tb_packet_type, obj);
+  obj->operation = (uint8_t)ULL2NUM(obj->operation);
+  return val;
+}
+
+static VALUE rb_tb_packet_get_status(VALUE self) {
+  tb_packet_t *obj;
+  TypedData_Get_Struct(self, tb_packet_t, &rb_tb_packet_type, obj);
+  return ULL2NUM(obj->status);
+}
+
+static VALUE rb_tb_packet_set_status(VALUE self, VALUE val) {
+  tb_packet_t *obj;
+  TypedData_Get_Struct(self, tb_packet_t, &rb_tb_packet_type, obj);
+  obj->status = (uint8_t)ULL2NUM(obj->status);
+  return val;
+}
 
 
-// Client - tb_client
-DEFINE_RB_CLASS_FOR_STRUCT(tb_client)
+
+// Definitions: Client - tb_client_t
+static size_t rb_tb_client_size(const void *ptr) {
+  return sizeof(tb_client_t);
+}
+
+const rb_data_type_t rb_tb_client_type = {
+  .wrap_struct_name = "tb_client_t",
+  .function = {
+    .dmark = NULL,
+    .dfree = RUBY_DEFAULT_FREE,
+    .dsize = rb_tb_client_size,
+  },
+  .data = NULL,
+  .flags = RUBY_TYPED_FREE_IMMEDIATELY,
+};
+
+static VALUE rb_tb_client_alloc(VALUE self) {
+  tb_client_t *ptr;
+  return TypedData_Make_Struct(self, tb_client_t, &rb_tb_client_type, ptr);
+}
+
+static VALUE rb_tb_client_initialize(int argc, VALUE *argv, VALUE self) {
+  VALUE kwargs;
+  rb_scan_args(argc, argv, ":", &kwargs);
+
+  if (NIL_P(kwargs)) {
+    return self;
+  }
+
+  tb_client_t *wrapper;
+  TypedData_Get_Struct(self, tb_client_t, &rb_tb_client_type, wrapper);
+
+  VALUE keys = rb_funcall(kwargs, rb_intern("keys"), 0);
+  long num_keys = RARRAY_LEN(keys);
+  // strlen of setter + NULL byte
+  for (long i = 0; i < num_keys; i++) {
+      VALUE rb_key = RARRAY_AREF(keys, i);
+      VALUE value = rb_hash_aref(kwargs, rb_key);
+      const char *field_name = rb_id2name(SYM2ID(rb_key));
+      // `<field_name>=` == field length + 1 null byte
+      size_t field_len = strlen(field_name) + 2; // =\0x
+      char* rb_method_name = malloc(field_len);
+      if (rb_method_name == NULL) {
+          rb_raise(rb_eNoMemError, "Failed to allocate memory for tb_client");
+      }
+      snprintf(rb_method_name, field_len, "%s=", field_name);
+      rb_funcall(self, rb_intern(rb_method_name), 1, value);
+      free(rb_method_name);
+  }
+  return self;
+}
 
 
-// Account - tb_account
-DEFINE_RB_CLASS_FOR_STRUCT(tb_account)
-DEFINE_UINT128_ACCESSORS(tb_account, id)
-DEFINE_UINT128_ACCESSORS(tb_account, debits_pending)
-DEFINE_UINT128_ACCESSORS(tb_account, debits_posted)
-DEFINE_UINT128_ACCESSORS(tb_account, credits_pending)
-DEFINE_UINT128_ACCESSORS(tb_account, credits_posted)
-DEFINE_UINT128_ACCESSORS(tb_account, user_data_128)
-DEFINE_UINT_ACCESSORS(tb_account, uint64_t, user_data_64)
-DEFINE_UINT_ACCESSORS(tb_account, uint32_t, user_data_32)
-DEFINE_UINT_ACCESSORS(tb_account, uint32_t, ledger)
-DEFINE_UINT_ACCESSORS(tb_account, uint16_t, code)
-DEFINE_UINT_ACCESSORS(tb_account, uint16_t, flags)
-DEFINE_UINT_ACCESSORS(tb_account, uint64_t, timestamp)
+
+// Definitions: Account - tb_account_t
+static size_t rb_tb_account_size(const void *ptr) {
+  return sizeof(tb_account_t);
+}
+
+const rb_data_type_t rb_tb_account_type = {
+  .wrap_struct_name = "tb_account_t",
+  .function = {
+    .dmark = NULL,
+    .dfree = RUBY_DEFAULT_FREE,
+    .dsize = rb_tb_account_size,
+  },
+  .data = NULL,
+  .flags = RUBY_TYPED_FREE_IMMEDIATELY,
+};
+
+static VALUE rb_tb_account_alloc(VALUE self) {
+  tb_account_t *ptr;
+  return TypedData_Make_Struct(self, tb_account_t, &rb_tb_account_type, ptr);
+}
+
+static VALUE rb_tb_account_initialize(int argc, VALUE *argv, VALUE self) {
+  VALUE kwargs;
+  rb_scan_args(argc, argv, ":", &kwargs);
+
+  if (NIL_P(kwargs)) {
+    return self;
+  }
+
+  tb_account_t *wrapper;
+  TypedData_Get_Struct(self, tb_account_t, &rb_tb_account_type, wrapper);
+
+  VALUE keys = rb_funcall(kwargs, rb_intern("keys"), 0);
+  long num_keys = RARRAY_LEN(keys);
+  // strlen of setter + NULL byte
+  for (long i = 0; i < num_keys; i++) {
+      VALUE rb_key = RARRAY_AREF(keys, i);
+      VALUE value = rb_hash_aref(kwargs, rb_key);
+      const char *field_name = rb_id2name(SYM2ID(rb_key));
+      // `<field_name>=` == field length + 1 null byte
+      size_t field_len = strlen(field_name) + 2; // =\0x
+      char* rb_method_name = malloc(field_len);
+      if (rb_method_name == NULL) {
+          rb_raise(rb_eNoMemError, "Failed to allocate memory for tb_account");
+      }
+      snprintf(rb_method_name, field_len, "%s=", field_name);
+      rb_funcall(self, rb_intern(rb_method_name), 1, value);
+      free(rb_method_name);
+  }
+  return self;
+}
+
+static VALUE rb_tb_account_get_id(VALUE self) {
+  tb_account_t *obj;
+  TypedData_Get_Struct(self, tb_account_t, &rb_tb_account_type, obj);
+  return uint128_to_hex_string(obj->id);
+}
+
+static VALUE rb_tb_account_set_id(VALUE self, VALUE val) {
+  tb_account_t *obj;
+  TypedData_Get_Struct(self, tb_account_t, &rb_tb_account_type, obj);
+  obj->id = hex_string_to_uint128(val);
+  return val;
+}
+
+static VALUE rb_tb_account_get_debits_pending(VALUE self) {
+  tb_account_t *obj;
+  TypedData_Get_Struct(self, tb_account_t, &rb_tb_account_type, obj);
+  return uint128_to_hex_string(obj->debits_pending);
+}
+
+static VALUE rb_tb_account_set_debits_pending(VALUE self, VALUE val) {
+  tb_account_t *obj;
+  TypedData_Get_Struct(self, tb_account_t, &rb_tb_account_type, obj);
+  obj->debits_pending = hex_string_to_uint128(val);
+  return val;
+}
+
+static VALUE rb_tb_account_get_debits_posted(VALUE self) {
+  tb_account_t *obj;
+  TypedData_Get_Struct(self, tb_account_t, &rb_tb_account_type, obj);
+  return uint128_to_hex_string(obj->debits_posted);
+}
+
+static VALUE rb_tb_account_set_debits_posted(VALUE self, VALUE val) {
+  tb_account_t *obj;
+  TypedData_Get_Struct(self, tb_account_t, &rb_tb_account_type, obj);
+  obj->debits_posted = hex_string_to_uint128(val);
+  return val;
+}
+
+static VALUE rb_tb_account_get_credits_pending(VALUE self) {
+  tb_account_t *obj;
+  TypedData_Get_Struct(self, tb_account_t, &rb_tb_account_type, obj);
+  return uint128_to_hex_string(obj->credits_pending);
+}
+
+static VALUE rb_tb_account_set_credits_pending(VALUE self, VALUE val) {
+  tb_account_t *obj;
+  TypedData_Get_Struct(self, tb_account_t, &rb_tb_account_type, obj);
+  obj->credits_pending = hex_string_to_uint128(val);
+  return val;
+}
+
+static VALUE rb_tb_account_get_credits_posted(VALUE self) {
+  tb_account_t *obj;
+  TypedData_Get_Struct(self, tb_account_t, &rb_tb_account_type, obj);
+  return uint128_to_hex_string(obj->credits_posted);
+}
+
+static VALUE rb_tb_account_set_credits_posted(VALUE self, VALUE val) {
+  tb_account_t *obj;
+  TypedData_Get_Struct(self, tb_account_t, &rb_tb_account_type, obj);
+  obj->credits_posted = hex_string_to_uint128(val);
+  return val;
+}
+
+static VALUE rb_tb_account_get_user_data_128(VALUE self) {
+  tb_account_t *obj;
+  TypedData_Get_Struct(self, tb_account_t, &rb_tb_account_type, obj);
+  return uint128_to_hex_string(obj->user_data_128);
+}
+
+static VALUE rb_tb_account_set_user_data_128(VALUE self, VALUE val) {
+  tb_account_t *obj;
+  TypedData_Get_Struct(self, tb_account_t, &rb_tb_account_type, obj);
+  obj->user_data_128 = hex_string_to_uint128(val);
+  return val;
+}
+
+static VALUE rb_tb_account_get_user_data_64(VALUE self) {
+  tb_account_t *obj;
+  TypedData_Get_Struct(self, tb_account_t, &rb_tb_account_type, obj);
+  return ULL2NUM(obj->user_data_64);
+}
+
+static VALUE rb_tb_account_set_user_data_64(VALUE self, VALUE val) {
+  tb_account_t *obj;
+  TypedData_Get_Struct(self, tb_account_t, &rb_tb_account_type, obj);
+  obj->user_data_64 = (uint64_t)ULL2NUM(obj->user_data_64);
+  return val;
+}
+
+static VALUE rb_tb_account_get_user_data_32(VALUE self) {
+  tb_account_t *obj;
+  TypedData_Get_Struct(self, tb_account_t, &rb_tb_account_type, obj);
+  return ULL2NUM(obj->user_data_32);
+}
+
+static VALUE rb_tb_account_set_user_data_32(VALUE self, VALUE val) {
+  tb_account_t *obj;
+  TypedData_Get_Struct(self, tb_account_t, &rb_tb_account_type, obj);
+  obj->user_data_32 = (uint32_t)ULL2NUM(obj->user_data_32);
+  return val;
+}
+
+static VALUE rb_tb_account_get_ledger(VALUE self) {
+  tb_account_t *obj;
+  TypedData_Get_Struct(self, tb_account_t, &rb_tb_account_type, obj);
+  return ULL2NUM(obj->ledger);
+}
+
+static VALUE rb_tb_account_set_ledger(VALUE self, VALUE val) {
+  tb_account_t *obj;
+  TypedData_Get_Struct(self, tb_account_t, &rb_tb_account_type, obj);
+  obj->ledger = (uint32_t)ULL2NUM(obj->ledger);
+  return val;
+}
+
+static VALUE rb_tb_account_get_code(VALUE self) {
+  tb_account_t *obj;
+  TypedData_Get_Struct(self, tb_account_t, &rb_tb_account_type, obj);
+  return ULL2NUM(obj->code);
+}
+
+static VALUE rb_tb_account_set_code(VALUE self, VALUE val) {
+  tb_account_t *obj;
+  TypedData_Get_Struct(self, tb_account_t, &rb_tb_account_type, obj);
+  obj->code = (uint16_t)ULL2NUM(obj->code);
+  return val;
+}
+
+static VALUE rb_tb_account_get_flags(VALUE self) {
+  tb_account_t *obj;
+  TypedData_Get_Struct(self, tb_account_t, &rb_tb_account_type, obj);
+  return ULL2NUM(obj->flags);
+}
+
+static VALUE rb_tb_account_set_flags(VALUE self, VALUE val) {
+  tb_account_t *obj;
+  TypedData_Get_Struct(self, tb_account_t, &rb_tb_account_type, obj);
+  obj->flags = (uint16_t)ULL2NUM(obj->flags);
+  return val;
+}
+
+static VALUE rb_tb_account_get_timestamp(VALUE self) {
+  tb_account_t *obj;
+  TypedData_Get_Struct(self, tb_account_t, &rb_tb_account_type, obj);
+  return ULL2NUM(obj->timestamp);
+}
+
+static VALUE rb_tb_account_set_timestamp(VALUE self, VALUE val) {
+  tb_account_t *obj;
+  TypedData_Get_Struct(self, tb_account_t, &rb_tb_account_type, obj);
+  obj->timestamp = (uint64_t)ULL2NUM(obj->timestamp);
+  return val;
+}
 
 
-// Transfer - tb_transfer
-DEFINE_RB_CLASS_FOR_STRUCT(tb_transfer)
-DEFINE_UINT128_ACCESSORS(tb_transfer, id)
-DEFINE_UINT128_ACCESSORS(tb_transfer, debit_account_id)
-DEFINE_UINT128_ACCESSORS(tb_transfer, credit_account_id)
-DEFINE_UINT128_ACCESSORS(tb_transfer, amount)
-DEFINE_UINT128_ACCESSORS(tb_transfer, pending_id)
-DEFINE_UINT128_ACCESSORS(tb_transfer, user_data_128)
-DEFINE_UINT_ACCESSORS(tb_transfer, uint64_t, user_data_64)
-DEFINE_UINT_ACCESSORS(tb_transfer, uint32_t, user_data_32)
-DEFINE_UINT_ACCESSORS(tb_transfer, uint32_t, timeout)
-DEFINE_UINT_ACCESSORS(tb_transfer, uint32_t, ledger)
-DEFINE_UINT_ACCESSORS(tb_transfer, uint16_t, code)
-DEFINE_UINT_ACCESSORS(tb_transfer, uint16_t, flags)
-DEFINE_UINT_ACCESSORS(tb_transfer, uint64_t, timestamp)
+
+// Definitions: Transfer - tb_transfer_t
+static size_t rb_tb_transfer_size(const void *ptr) {
+  return sizeof(tb_transfer_t);
+}
+
+const rb_data_type_t rb_tb_transfer_type = {
+  .wrap_struct_name = "tb_transfer_t",
+  .function = {
+    .dmark = NULL,
+    .dfree = RUBY_DEFAULT_FREE,
+    .dsize = rb_tb_transfer_size,
+  },
+  .data = NULL,
+  .flags = RUBY_TYPED_FREE_IMMEDIATELY,
+};
+
+static VALUE rb_tb_transfer_alloc(VALUE self) {
+  tb_transfer_t *ptr;
+  return TypedData_Make_Struct(self, tb_transfer_t, &rb_tb_transfer_type, ptr);
+}
+
+static VALUE rb_tb_transfer_initialize(int argc, VALUE *argv, VALUE self) {
+  VALUE kwargs;
+  rb_scan_args(argc, argv, ":", &kwargs);
+
+  if (NIL_P(kwargs)) {
+    return self;
+  }
+
+  tb_transfer_t *wrapper;
+  TypedData_Get_Struct(self, tb_transfer_t, &rb_tb_transfer_type, wrapper);
+
+  VALUE keys = rb_funcall(kwargs, rb_intern("keys"), 0);
+  long num_keys = RARRAY_LEN(keys);
+  // strlen of setter + NULL byte
+  for (long i = 0; i < num_keys; i++) {
+      VALUE rb_key = RARRAY_AREF(keys, i);
+      VALUE value = rb_hash_aref(kwargs, rb_key);
+      const char *field_name = rb_id2name(SYM2ID(rb_key));
+      // `<field_name>=` == field length + 1 null byte
+      size_t field_len = strlen(field_name) + 2; // =\0x
+      char* rb_method_name = malloc(field_len);
+      if (rb_method_name == NULL) {
+          rb_raise(rb_eNoMemError, "Failed to allocate memory for tb_transfer");
+      }
+      snprintf(rb_method_name, field_len, "%s=", field_name);
+      rb_funcall(self, rb_intern(rb_method_name), 1, value);
+      free(rb_method_name);
+  }
+  return self;
+}
+
+static VALUE rb_tb_transfer_get_id(VALUE self) {
+  tb_transfer_t *obj;
+  TypedData_Get_Struct(self, tb_transfer_t, &rb_tb_transfer_type, obj);
+  return uint128_to_hex_string(obj->id);
+}
+
+static VALUE rb_tb_transfer_set_id(VALUE self, VALUE val) {
+  tb_transfer_t *obj;
+  TypedData_Get_Struct(self, tb_transfer_t, &rb_tb_transfer_type, obj);
+  obj->id = hex_string_to_uint128(val);
+  return val;
+}
+
+static VALUE rb_tb_transfer_get_debit_account_id(VALUE self) {
+  tb_transfer_t *obj;
+  TypedData_Get_Struct(self, tb_transfer_t, &rb_tb_transfer_type, obj);
+  return uint128_to_hex_string(obj->debit_account_id);
+}
+
+static VALUE rb_tb_transfer_set_debit_account_id(VALUE self, VALUE val) {
+  tb_transfer_t *obj;
+  TypedData_Get_Struct(self, tb_transfer_t, &rb_tb_transfer_type, obj);
+  obj->debit_account_id = hex_string_to_uint128(val);
+  return val;
+}
+
+static VALUE rb_tb_transfer_get_credit_account_id(VALUE self) {
+  tb_transfer_t *obj;
+  TypedData_Get_Struct(self, tb_transfer_t, &rb_tb_transfer_type, obj);
+  return uint128_to_hex_string(obj->credit_account_id);
+}
+
+static VALUE rb_tb_transfer_set_credit_account_id(VALUE self, VALUE val) {
+  tb_transfer_t *obj;
+  TypedData_Get_Struct(self, tb_transfer_t, &rb_tb_transfer_type, obj);
+  obj->credit_account_id = hex_string_to_uint128(val);
+  return val;
+}
+
+static VALUE rb_tb_transfer_get_amount(VALUE self) {
+  tb_transfer_t *obj;
+  TypedData_Get_Struct(self, tb_transfer_t, &rb_tb_transfer_type, obj);
+  return uint128_to_hex_string(obj->amount);
+}
+
+static VALUE rb_tb_transfer_set_amount(VALUE self, VALUE val) {
+  tb_transfer_t *obj;
+  TypedData_Get_Struct(self, tb_transfer_t, &rb_tb_transfer_type, obj);
+  obj->amount = hex_string_to_uint128(val);
+  return val;
+}
+
+static VALUE rb_tb_transfer_get_pending_id(VALUE self) {
+  tb_transfer_t *obj;
+  TypedData_Get_Struct(self, tb_transfer_t, &rb_tb_transfer_type, obj);
+  return uint128_to_hex_string(obj->pending_id);
+}
+
+static VALUE rb_tb_transfer_set_pending_id(VALUE self, VALUE val) {
+  tb_transfer_t *obj;
+  TypedData_Get_Struct(self, tb_transfer_t, &rb_tb_transfer_type, obj);
+  obj->pending_id = hex_string_to_uint128(val);
+  return val;
+}
+
+static VALUE rb_tb_transfer_get_user_data_128(VALUE self) {
+  tb_transfer_t *obj;
+  TypedData_Get_Struct(self, tb_transfer_t, &rb_tb_transfer_type, obj);
+  return uint128_to_hex_string(obj->user_data_128);
+}
+
+static VALUE rb_tb_transfer_set_user_data_128(VALUE self, VALUE val) {
+  tb_transfer_t *obj;
+  TypedData_Get_Struct(self, tb_transfer_t, &rb_tb_transfer_type, obj);
+  obj->user_data_128 = hex_string_to_uint128(val);
+  return val;
+}
+
+static VALUE rb_tb_transfer_get_user_data_64(VALUE self) {
+  tb_transfer_t *obj;
+  TypedData_Get_Struct(self, tb_transfer_t, &rb_tb_transfer_type, obj);
+  return ULL2NUM(obj->user_data_64);
+}
+
+static VALUE rb_tb_transfer_set_user_data_64(VALUE self, VALUE val) {
+  tb_transfer_t *obj;
+  TypedData_Get_Struct(self, tb_transfer_t, &rb_tb_transfer_type, obj);
+  obj->user_data_64 = (uint64_t)ULL2NUM(obj->user_data_64);
+  return val;
+}
+
+static VALUE rb_tb_transfer_get_user_data_32(VALUE self) {
+  tb_transfer_t *obj;
+  TypedData_Get_Struct(self, tb_transfer_t, &rb_tb_transfer_type, obj);
+  return ULL2NUM(obj->user_data_32);
+}
+
+static VALUE rb_tb_transfer_set_user_data_32(VALUE self, VALUE val) {
+  tb_transfer_t *obj;
+  TypedData_Get_Struct(self, tb_transfer_t, &rb_tb_transfer_type, obj);
+  obj->user_data_32 = (uint32_t)ULL2NUM(obj->user_data_32);
+  return val;
+}
+
+static VALUE rb_tb_transfer_get_timeout(VALUE self) {
+  tb_transfer_t *obj;
+  TypedData_Get_Struct(self, tb_transfer_t, &rb_tb_transfer_type, obj);
+  return ULL2NUM(obj->timeout);
+}
+
+static VALUE rb_tb_transfer_set_timeout(VALUE self, VALUE val) {
+  tb_transfer_t *obj;
+  TypedData_Get_Struct(self, tb_transfer_t, &rb_tb_transfer_type, obj);
+  obj->timeout = (uint32_t)ULL2NUM(obj->timeout);
+  return val;
+}
+
+static VALUE rb_tb_transfer_get_ledger(VALUE self) {
+  tb_transfer_t *obj;
+  TypedData_Get_Struct(self, tb_transfer_t, &rb_tb_transfer_type, obj);
+  return ULL2NUM(obj->ledger);
+}
+
+static VALUE rb_tb_transfer_set_ledger(VALUE self, VALUE val) {
+  tb_transfer_t *obj;
+  TypedData_Get_Struct(self, tb_transfer_t, &rb_tb_transfer_type, obj);
+  obj->ledger = (uint32_t)ULL2NUM(obj->ledger);
+  return val;
+}
+
+static VALUE rb_tb_transfer_get_code(VALUE self) {
+  tb_transfer_t *obj;
+  TypedData_Get_Struct(self, tb_transfer_t, &rb_tb_transfer_type, obj);
+  return ULL2NUM(obj->code);
+}
+
+static VALUE rb_tb_transfer_set_code(VALUE self, VALUE val) {
+  tb_transfer_t *obj;
+  TypedData_Get_Struct(self, tb_transfer_t, &rb_tb_transfer_type, obj);
+  obj->code = (uint16_t)ULL2NUM(obj->code);
+  return val;
+}
+
+static VALUE rb_tb_transfer_get_flags(VALUE self) {
+  tb_transfer_t *obj;
+  TypedData_Get_Struct(self, tb_transfer_t, &rb_tb_transfer_type, obj);
+  return ULL2NUM(obj->flags);
+}
+
+static VALUE rb_tb_transfer_set_flags(VALUE self, VALUE val) {
+  tb_transfer_t *obj;
+  TypedData_Get_Struct(self, tb_transfer_t, &rb_tb_transfer_type, obj);
+  obj->flags = (uint16_t)ULL2NUM(obj->flags);
+  return val;
+}
+
+static VALUE rb_tb_transfer_get_timestamp(VALUE self) {
+  tb_transfer_t *obj;
+  TypedData_Get_Struct(self, tb_transfer_t, &rb_tb_transfer_type, obj);
+  return ULL2NUM(obj->timestamp);
+}
+
+static VALUE rb_tb_transfer_set_timestamp(VALUE self, VALUE val) {
+  tb_transfer_t *obj;
+  TypedData_Get_Struct(self, tb_transfer_t, &rb_tb_transfer_type, obj);
+  obj->timestamp = (uint64_t)ULL2NUM(obj->timestamp);
+  return val;
+}
 
 
-// AccountFilter - tb_account_filter
-DEFINE_RB_CLASS_FOR_STRUCT(tb_account_filter)
-DEFINE_UINT128_ACCESSORS(tb_account_filter, account_id)
-DEFINE_UINT128_ACCESSORS(tb_account_filter, user_data_128)
-DEFINE_UINT_ACCESSORS(tb_account_filter, uint64_t, user_data_64)
-DEFINE_UINT_ACCESSORS(tb_account_filter, uint32_t, user_data_32)
-DEFINE_UINT_ACCESSORS(tb_account_filter, uint16_t, code)
-DEFINE_UINT_ACCESSORS(tb_account_filter, uint64_t, timestamp_min)
-DEFINE_UINT_ACCESSORS(tb_account_filter, uint64_t, timestamp_max)
-DEFINE_UINT_ACCESSORS(tb_account_filter, uint32_t, limit)
-DEFINE_UINT_ACCESSORS(tb_account_filter, uint32_t, flags)
+
+// Definitions: AccountFilter - tb_account_filter_t
+static size_t rb_tb_account_filter_size(const void *ptr) {
+  return sizeof(tb_account_filter_t);
+}
+
+const rb_data_type_t rb_tb_account_filter_type = {
+  .wrap_struct_name = "tb_account_filter_t",
+  .function = {
+    .dmark = NULL,
+    .dfree = RUBY_DEFAULT_FREE,
+    .dsize = rb_tb_account_filter_size,
+  },
+  .data = NULL,
+  .flags = RUBY_TYPED_FREE_IMMEDIATELY,
+};
+
+static VALUE rb_tb_account_filter_alloc(VALUE self) {
+  tb_account_filter_t *ptr;
+  return TypedData_Make_Struct(self, tb_account_filter_t, &rb_tb_account_filter_type, ptr);
+}
+
+static VALUE rb_tb_account_filter_initialize(int argc, VALUE *argv, VALUE self) {
+  VALUE kwargs;
+  rb_scan_args(argc, argv, ":", &kwargs);
+
+  if (NIL_P(kwargs)) {
+    return self;
+  }
+
+  tb_account_filter_t *wrapper;
+  TypedData_Get_Struct(self, tb_account_filter_t, &rb_tb_account_filter_type, wrapper);
+
+  VALUE keys = rb_funcall(kwargs, rb_intern("keys"), 0);
+  long num_keys = RARRAY_LEN(keys);
+  // strlen of setter + NULL byte
+  for (long i = 0; i < num_keys; i++) {
+      VALUE rb_key = RARRAY_AREF(keys, i);
+      VALUE value = rb_hash_aref(kwargs, rb_key);
+      const char *field_name = rb_id2name(SYM2ID(rb_key));
+      // `<field_name>=` == field length + 1 null byte
+      size_t field_len = strlen(field_name) + 2; // =\0x
+      char* rb_method_name = malloc(field_len);
+      if (rb_method_name == NULL) {
+          rb_raise(rb_eNoMemError, "Failed to allocate memory for tb_account_filter");
+      }
+      snprintf(rb_method_name, field_len, "%s=", field_name);
+      rb_funcall(self, rb_intern(rb_method_name), 1, value);
+      free(rb_method_name);
+  }
+  return self;
+}
+
+static VALUE rb_tb_account_filter_get_account_id(VALUE self) {
+  tb_account_filter_t *obj;
+  TypedData_Get_Struct(self, tb_account_filter_t, &rb_tb_account_filter_type, obj);
+  return uint128_to_hex_string(obj->account_id);
+}
+
+static VALUE rb_tb_account_filter_set_account_id(VALUE self, VALUE val) {
+  tb_account_filter_t *obj;
+  TypedData_Get_Struct(self, tb_account_filter_t, &rb_tb_account_filter_type, obj);
+  obj->account_id = hex_string_to_uint128(val);
+  return val;
+}
+
+static VALUE rb_tb_account_filter_get_user_data_128(VALUE self) {
+  tb_account_filter_t *obj;
+  TypedData_Get_Struct(self, tb_account_filter_t, &rb_tb_account_filter_type, obj);
+  return uint128_to_hex_string(obj->user_data_128);
+}
+
+static VALUE rb_tb_account_filter_set_user_data_128(VALUE self, VALUE val) {
+  tb_account_filter_t *obj;
+  TypedData_Get_Struct(self, tb_account_filter_t, &rb_tb_account_filter_type, obj);
+  obj->user_data_128 = hex_string_to_uint128(val);
+  return val;
+}
+
+static VALUE rb_tb_account_filter_get_user_data_64(VALUE self) {
+  tb_account_filter_t *obj;
+  TypedData_Get_Struct(self, tb_account_filter_t, &rb_tb_account_filter_type, obj);
+  return ULL2NUM(obj->user_data_64);
+}
+
+static VALUE rb_tb_account_filter_set_user_data_64(VALUE self, VALUE val) {
+  tb_account_filter_t *obj;
+  TypedData_Get_Struct(self, tb_account_filter_t, &rb_tb_account_filter_type, obj);
+  obj->user_data_64 = (uint64_t)ULL2NUM(obj->user_data_64);
+  return val;
+}
+
+static VALUE rb_tb_account_filter_get_user_data_32(VALUE self) {
+  tb_account_filter_t *obj;
+  TypedData_Get_Struct(self, tb_account_filter_t, &rb_tb_account_filter_type, obj);
+  return ULL2NUM(obj->user_data_32);
+}
+
+static VALUE rb_tb_account_filter_set_user_data_32(VALUE self, VALUE val) {
+  tb_account_filter_t *obj;
+  TypedData_Get_Struct(self, tb_account_filter_t, &rb_tb_account_filter_type, obj);
+  obj->user_data_32 = (uint32_t)ULL2NUM(obj->user_data_32);
+  return val;
+}
+
+static VALUE rb_tb_account_filter_get_code(VALUE self) {
+  tb_account_filter_t *obj;
+  TypedData_Get_Struct(self, tb_account_filter_t, &rb_tb_account_filter_type, obj);
+  return ULL2NUM(obj->code);
+}
+
+static VALUE rb_tb_account_filter_set_code(VALUE self, VALUE val) {
+  tb_account_filter_t *obj;
+  TypedData_Get_Struct(self, tb_account_filter_t, &rb_tb_account_filter_type, obj);
+  obj->code = (uint16_t)ULL2NUM(obj->code);
+  return val;
+}
+
+static VALUE rb_tb_account_filter_get_timestamp_min(VALUE self) {
+  tb_account_filter_t *obj;
+  TypedData_Get_Struct(self, tb_account_filter_t, &rb_tb_account_filter_type, obj);
+  return ULL2NUM(obj->timestamp_min);
+}
+
+static VALUE rb_tb_account_filter_set_timestamp_min(VALUE self, VALUE val) {
+  tb_account_filter_t *obj;
+  TypedData_Get_Struct(self, tb_account_filter_t, &rb_tb_account_filter_type, obj);
+  obj->timestamp_min = (uint64_t)ULL2NUM(obj->timestamp_min);
+  return val;
+}
+
+static VALUE rb_tb_account_filter_get_timestamp_max(VALUE self) {
+  tb_account_filter_t *obj;
+  TypedData_Get_Struct(self, tb_account_filter_t, &rb_tb_account_filter_type, obj);
+  return ULL2NUM(obj->timestamp_max);
+}
+
+static VALUE rb_tb_account_filter_set_timestamp_max(VALUE self, VALUE val) {
+  tb_account_filter_t *obj;
+  TypedData_Get_Struct(self, tb_account_filter_t, &rb_tb_account_filter_type, obj);
+  obj->timestamp_max = (uint64_t)ULL2NUM(obj->timestamp_max);
+  return val;
+}
+
+static VALUE rb_tb_account_filter_get_limit(VALUE self) {
+  tb_account_filter_t *obj;
+  TypedData_Get_Struct(self, tb_account_filter_t, &rb_tb_account_filter_type, obj);
+  return ULL2NUM(obj->limit);
+}
+
+static VALUE rb_tb_account_filter_set_limit(VALUE self, VALUE val) {
+  tb_account_filter_t *obj;
+  TypedData_Get_Struct(self, tb_account_filter_t, &rb_tb_account_filter_type, obj);
+  obj->limit = (uint32_t)ULL2NUM(obj->limit);
+  return val;
+}
+
+static VALUE rb_tb_account_filter_get_flags(VALUE self) {
+  tb_account_filter_t *obj;
+  TypedData_Get_Struct(self, tb_account_filter_t, &rb_tb_account_filter_type, obj);
+  return ULL2NUM(obj->flags);
+}
+
+static VALUE rb_tb_account_filter_set_flags(VALUE self, VALUE val) {
+  tb_account_filter_t *obj;
+  TypedData_Get_Struct(self, tb_account_filter_t, &rb_tb_account_filter_type, obj);
+  obj->flags = (uint32_t)ULL2NUM(obj->flags);
+  return val;
+}
 
 
-// AccountBalance - tb_account_balance
-DEFINE_RB_CLASS_FOR_STRUCT(tb_account_balance)
-DEFINE_UINT128_ACCESSORS(tb_account_balance, debits_pending)
-DEFINE_UINT128_ACCESSORS(tb_account_balance, debits_posted)
-DEFINE_UINT128_ACCESSORS(tb_account_balance, credits_pending)
-DEFINE_UINT128_ACCESSORS(tb_account_balance, credits_posted)
-DEFINE_UINT_ACCESSORS(tb_account_balance, uint64_t, timestamp)
+
+// Definitions: AccountBalance - tb_account_balance_t
+static size_t rb_tb_account_balance_size(const void *ptr) {
+  return sizeof(tb_account_balance_t);
+}
+
+const rb_data_type_t rb_tb_account_balance_type = {
+  .wrap_struct_name = "tb_account_balance_t",
+  .function = {
+    .dmark = NULL,
+    .dfree = RUBY_DEFAULT_FREE,
+    .dsize = rb_tb_account_balance_size,
+  },
+  .data = NULL,
+  .flags = RUBY_TYPED_FREE_IMMEDIATELY,
+};
+
+static VALUE rb_tb_account_balance_alloc(VALUE self) {
+  tb_account_balance_t *ptr;
+  return TypedData_Make_Struct(self, tb_account_balance_t, &rb_tb_account_balance_type, ptr);
+}
+
+static VALUE rb_tb_account_balance_initialize(int argc, VALUE *argv, VALUE self) {
+  VALUE kwargs;
+  rb_scan_args(argc, argv, ":", &kwargs);
+
+  if (NIL_P(kwargs)) {
+    return self;
+  }
+
+  tb_account_balance_t *wrapper;
+  TypedData_Get_Struct(self, tb_account_balance_t, &rb_tb_account_balance_type, wrapper);
+
+  VALUE keys = rb_funcall(kwargs, rb_intern("keys"), 0);
+  long num_keys = RARRAY_LEN(keys);
+  // strlen of setter + NULL byte
+  for (long i = 0; i < num_keys; i++) {
+      VALUE rb_key = RARRAY_AREF(keys, i);
+      VALUE value = rb_hash_aref(kwargs, rb_key);
+      const char *field_name = rb_id2name(SYM2ID(rb_key));
+      // `<field_name>=` == field length + 1 null byte
+      size_t field_len = strlen(field_name) + 2; // =\0x
+      char* rb_method_name = malloc(field_len);
+      if (rb_method_name == NULL) {
+          rb_raise(rb_eNoMemError, "Failed to allocate memory for tb_account_balance");
+      }
+      snprintf(rb_method_name, field_len, "%s=", field_name);
+      rb_funcall(self, rb_intern(rb_method_name), 1, value);
+      free(rb_method_name);
+  }
+  return self;
+}
+
+static VALUE rb_tb_account_balance_get_debits_pending(VALUE self) {
+  tb_account_balance_t *obj;
+  TypedData_Get_Struct(self, tb_account_balance_t, &rb_tb_account_balance_type, obj);
+  return uint128_to_hex_string(obj->debits_pending);
+}
+
+static VALUE rb_tb_account_balance_set_debits_pending(VALUE self, VALUE val) {
+  tb_account_balance_t *obj;
+  TypedData_Get_Struct(self, tb_account_balance_t, &rb_tb_account_balance_type, obj);
+  obj->debits_pending = hex_string_to_uint128(val);
+  return val;
+}
+
+static VALUE rb_tb_account_balance_get_debits_posted(VALUE self) {
+  tb_account_balance_t *obj;
+  TypedData_Get_Struct(self, tb_account_balance_t, &rb_tb_account_balance_type, obj);
+  return uint128_to_hex_string(obj->debits_posted);
+}
+
+static VALUE rb_tb_account_balance_set_debits_posted(VALUE self, VALUE val) {
+  tb_account_balance_t *obj;
+  TypedData_Get_Struct(self, tb_account_balance_t, &rb_tb_account_balance_type, obj);
+  obj->debits_posted = hex_string_to_uint128(val);
+  return val;
+}
+
+static VALUE rb_tb_account_balance_get_credits_pending(VALUE self) {
+  tb_account_balance_t *obj;
+  TypedData_Get_Struct(self, tb_account_balance_t, &rb_tb_account_balance_type, obj);
+  return uint128_to_hex_string(obj->credits_pending);
+}
+
+static VALUE rb_tb_account_balance_set_credits_pending(VALUE self, VALUE val) {
+  tb_account_balance_t *obj;
+  TypedData_Get_Struct(self, tb_account_balance_t, &rb_tb_account_balance_type, obj);
+  obj->credits_pending = hex_string_to_uint128(val);
+  return val;
+}
+
+static VALUE rb_tb_account_balance_get_credits_posted(VALUE self) {
+  tb_account_balance_t *obj;
+  TypedData_Get_Struct(self, tb_account_balance_t, &rb_tb_account_balance_type, obj);
+  return uint128_to_hex_string(obj->credits_posted);
+}
+
+static VALUE rb_tb_account_balance_set_credits_posted(VALUE self, VALUE val) {
+  tb_account_balance_t *obj;
+  TypedData_Get_Struct(self, tb_account_balance_t, &rb_tb_account_balance_type, obj);
+  obj->credits_posted = hex_string_to_uint128(val);
+  return val;
+}
+
+static VALUE rb_tb_account_balance_get_timestamp(VALUE self) {
+  tb_account_balance_t *obj;
+  TypedData_Get_Struct(self, tb_account_balance_t, &rb_tb_account_balance_type, obj);
+  return ULL2NUM(obj->timestamp);
+}
+
+static VALUE rb_tb_account_balance_set_timestamp(VALUE self, VALUE val) {
+  tb_account_balance_t *obj;
+  TypedData_Get_Struct(self, tb_account_balance_t, &rb_tb_account_balance_type, obj);
+  obj->timestamp = (uint64_t)ULL2NUM(obj->timestamp);
+  return val;
+}
 
 
-// QueryFilter - tb_query_filter
-DEFINE_RB_CLASS_FOR_STRUCT(tb_query_filter)
-DEFINE_UINT128_ACCESSORS(tb_query_filter, user_data_128)
-DEFINE_UINT_ACCESSORS(tb_query_filter, uint64_t, user_data_64)
-DEFINE_UINT_ACCESSORS(tb_query_filter, uint32_t, user_data_32)
-DEFINE_UINT_ACCESSORS(tb_query_filter, uint32_t, ledger)
-DEFINE_UINT_ACCESSORS(tb_query_filter, uint16_t, code)
-DEFINE_UINT_ACCESSORS(tb_query_filter, uint64_t, timestamp_min)
-DEFINE_UINT_ACCESSORS(tb_query_filter, uint64_t, timestamp_max)
-DEFINE_UINT_ACCESSORS(tb_query_filter, uint32_t, limit)
-DEFINE_UINT_ACCESSORS(tb_query_filter, uint32_t, flags)
+
+// Definitions: QueryFilter - tb_query_filter_t
+static size_t rb_tb_query_filter_size(const void *ptr) {
+  return sizeof(tb_query_filter_t);
+}
+
+const rb_data_type_t rb_tb_query_filter_type = {
+  .wrap_struct_name = "tb_query_filter_t",
+  .function = {
+    .dmark = NULL,
+    .dfree = RUBY_DEFAULT_FREE,
+    .dsize = rb_tb_query_filter_size,
+  },
+  .data = NULL,
+  .flags = RUBY_TYPED_FREE_IMMEDIATELY,
+};
+
+static VALUE rb_tb_query_filter_alloc(VALUE self) {
+  tb_query_filter_t *ptr;
+  return TypedData_Make_Struct(self, tb_query_filter_t, &rb_tb_query_filter_type, ptr);
+}
+
+static VALUE rb_tb_query_filter_initialize(int argc, VALUE *argv, VALUE self) {
+  VALUE kwargs;
+  rb_scan_args(argc, argv, ":", &kwargs);
+
+  if (NIL_P(kwargs)) {
+    return self;
+  }
+
+  tb_query_filter_t *wrapper;
+  TypedData_Get_Struct(self, tb_query_filter_t, &rb_tb_query_filter_type, wrapper);
+
+  VALUE keys = rb_funcall(kwargs, rb_intern("keys"), 0);
+  long num_keys = RARRAY_LEN(keys);
+  // strlen of setter + NULL byte
+  for (long i = 0; i < num_keys; i++) {
+      VALUE rb_key = RARRAY_AREF(keys, i);
+      VALUE value = rb_hash_aref(kwargs, rb_key);
+      const char *field_name = rb_id2name(SYM2ID(rb_key));
+      // `<field_name>=` == field length + 1 null byte
+      size_t field_len = strlen(field_name) + 2; // =\0x
+      char* rb_method_name = malloc(field_len);
+      if (rb_method_name == NULL) {
+          rb_raise(rb_eNoMemError, "Failed to allocate memory for tb_query_filter");
+      }
+      snprintf(rb_method_name, field_len, "%s=", field_name);
+      rb_funcall(self, rb_intern(rb_method_name), 1, value);
+      free(rb_method_name);
+  }
+  return self;
+}
+
+static VALUE rb_tb_query_filter_get_user_data_128(VALUE self) {
+  tb_query_filter_t *obj;
+  TypedData_Get_Struct(self, tb_query_filter_t, &rb_tb_query_filter_type, obj);
+  return uint128_to_hex_string(obj->user_data_128);
+}
+
+static VALUE rb_tb_query_filter_set_user_data_128(VALUE self, VALUE val) {
+  tb_query_filter_t *obj;
+  TypedData_Get_Struct(self, tb_query_filter_t, &rb_tb_query_filter_type, obj);
+  obj->user_data_128 = hex_string_to_uint128(val);
+  return val;
+}
+
+static VALUE rb_tb_query_filter_get_user_data_64(VALUE self) {
+  tb_query_filter_t *obj;
+  TypedData_Get_Struct(self, tb_query_filter_t, &rb_tb_query_filter_type, obj);
+  return ULL2NUM(obj->user_data_64);
+}
+
+static VALUE rb_tb_query_filter_set_user_data_64(VALUE self, VALUE val) {
+  tb_query_filter_t *obj;
+  TypedData_Get_Struct(self, tb_query_filter_t, &rb_tb_query_filter_type, obj);
+  obj->user_data_64 = (uint64_t)ULL2NUM(obj->user_data_64);
+  return val;
+}
+
+static VALUE rb_tb_query_filter_get_user_data_32(VALUE self) {
+  tb_query_filter_t *obj;
+  TypedData_Get_Struct(self, tb_query_filter_t, &rb_tb_query_filter_type, obj);
+  return ULL2NUM(obj->user_data_32);
+}
+
+static VALUE rb_tb_query_filter_set_user_data_32(VALUE self, VALUE val) {
+  tb_query_filter_t *obj;
+  TypedData_Get_Struct(self, tb_query_filter_t, &rb_tb_query_filter_type, obj);
+  obj->user_data_32 = (uint32_t)ULL2NUM(obj->user_data_32);
+  return val;
+}
+
+static VALUE rb_tb_query_filter_get_ledger(VALUE self) {
+  tb_query_filter_t *obj;
+  TypedData_Get_Struct(self, tb_query_filter_t, &rb_tb_query_filter_type, obj);
+  return ULL2NUM(obj->ledger);
+}
+
+static VALUE rb_tb_query_filter_set_ledger(VALUE self, VALUE val) {
+  tb_query_filter_t *obj;
+  TypedData_Get_Struct(self, tb_query_filter_t, &rb_tb_query_filter_type, obj);
+  obj->ledger = (uint32_t)ULL2NUM(obj->ledger);
+  return val;
+}
+
+static VALUE rb_tb_query_filter_get_code(VALUE self) {
+  tb_query_filter_t *obj;
+  TypedData_Get_Struct(self, tb_query_filter_t, &rb_tb_query_filter_type, obj);
+  return ULL2NUM(obj->code);
+}
+
+static VALUE rb_tb_query_filter_set_code(VALUE self, VALUE val) {
+  tb_query_filter_t *obj;
+  TypedData_Get_Struct(self, tb_query_filter_t, &rb_tb_query_filter_type, obj);
+  obj->code = (uint16_t)ULL2NUM(obj->code);
+  return val;
+}
+
+static VALUE rb_tb_query_filter_get_timestamp_min(VALUE self) {
+  tb_query_filter_t *obj;
+  TypedData_Get_Struct(self, tb_query_filter_t, &rb_tb_query_filter_type, obj);
+  return ULL2NUM(obj->timestamp_min);
+}
+
+static VALUE rb_tb_query_filter_set_timestamp_min(VALUE self, VALUE val) {
+  tb_query_filter_t *obj;
+  TypedData_Get_Struct(self, tb_query_filter_t, &rb_tb_query_filter_type, obj);
+  obj->timestamp_min = (uint64_t)ULL2NUM(obj->timestamp_min);
+  return val;
+}
+
+static VALUE rb_tb_query_filter_get_timestamp_max(VALUE self) {
+  tb_query_filter_t *obj;
+  TypedData_Get_Struct(self, tb_query_filter_t, &rb_tb_query_filter_type, obj);
+  return ULL2NUM(obj->timestamp_max);
+}
+
+static VALUE rb_tb_query_filter_set_timestamp_max(VALUE self, VALUE val) {
+  tb_query_filter_t *obj;
+  TypedData_Get_Struct(self, tb_query_filter_t, &rb_tb_query_filter_type, obj);
+  obj->timestamp_max = (uint64_t)ULL2NUM(obj->timestamp_max);
+  return val;
+}
+
+static VALUE rb_tb_query_filter_get_limit(VALUE self) {
+  tb_query_filter_t *obj;
+  TypedData_Get_Struct(self, tb_query_filter_t, &rb_tb_query_filter_type, obj);
+  return ULL2NUM(obj->limit);
+}
+
+static VALUE rb_tb_query_filter_set_limit(VALUE self, VALUE val) {
+  tb_query_filter_t *obj;
+  TypedData_Get_Struct(self, tb_query_filter_t, &rb_tb_query_filter_type, obj);
+  obj->limit = (uint32_t)ULL2NUM(obj->limit);
+  return val;
+}
+
+static VALUE rb_tb_query_filter_get_flags(VALUE self) {
+  tb_query_filter_t *obj;
+  TypedData_Get_Struct(self, tb_query_filter_t, &rb_tb_query_filter_type, obj);
+  return ULL2NUM(obj->flags);
+}
+
+static VALUE rb_tb_query_filter_set_flags(VALUE self, VALUE val) {
+  tb_query_filter_t *obj;
+  TypedData_Get_Struct(self, tb_query_filter_t, &rb_tb_query_filter_type, obj);
+  obj->flags = (uint32_t)ULL2NUM(obj->flags);
+  return val;
+}
+
 
 
 //Ruby method accessors
@@ -270,12 +1295,18 @@ void tb_define_ruby_accessors(VALUE module) {
   VALUE m_Packet_klass = rb_define_class_under(module, "Packet", rb_cObject);
   rb_define_alloc_func(m_Packet_klass, rb_tb_packet_alloc);
   rb_define_method(m_Packet_klass, "initialize", rb_tb_packet_initialize, -1);
-  DEFINE_ACCESSORS_METHODS(tb_packet, user_data, m_Packet_klass)
-  DEFINE_ACCESSORS_METHODS(tb_packet, data, m_Packet_klass)
-  DEFINE_ACCESSORS_METHODS(tb_packet, data_size, m_Packet_klass)
-  DEFINE_ACCESSORS_METHODS(tb_packet, user_tag, m_Packet_klass)
-  DEFINE_ACCESSORS_METHODS(tb_packet, operation, m_Packet_klass)
-  DEFINE_ACCESSORS_METHODS(tb_packet, status, m_Packet_klass)
+  rb_define_method(m_Packet_klass, "user_data",  rb_tb_packet_get_user_data, 0);
+  rb_define_method(m_Packet_klass, "user_data=",  rb_tb_packet_set_user_data, 1);
+  rb_define_method(m_Packet_klass, "data",  rb_tb_packet_get_data, 0);
+  rb_define_method(m_Packet_klass, "data=",  rb_tb_packet_set_data, 1);
+  rb_define_method(m_Packet_klass, "data_size",  rb_tb_packet_get_data_size, 0);
+  rb_define_method(m_Packet_klass, "data_size=",  rb_tb_packet_set_data_size, 1);
+  rb_define_method(m_Packet_klass, "user_tag",  rb_tb_packet_get_user_tag, 0);
+  rb_define_method(m_Packet_klass, "user_tag=",  rb_tb_packet_set_user_tag, 1);
+  rb_define_method(m_Packet_klass, "operation",  rb_tb_packet_get_operation, 0);
+  rb_define_method(m_Packet_klass, "operation=",  rb_tb_packet_set_operation, 1);
+  rb_define_method(m_Packet_klass, "status",  rb_tb_packet_get_status, 0);
+  rb_define_method(m_Packet_klass, "status=",  rb_tb_packet_set_status, 1);
 
   VALUE m_Client_klass = rb_define_class_under(module, "Client", rb_cObject);
   rb_define_alloc_func(m_Client_klass, rb_tb_client_alloc);
@@ -284,68 +1315,116 @@ void tb_define_ruby_accessors(VALUE module) {
   VALUE m_Account_klass = rb_define_class_under(module, "Account", rb_cObject);
   rb_define_alloc_func(m_Account_klass, rb_tb_account_alloc);
   rb_define_method(m_Account_klass, "initialize", rb_tb_account_initialize, -1);
-  DEFINE_ACCESSORS_METHODS(tb_account, id, m_Account_klass)
-  DEFINE_ACCESSORS_METHODS(tb_account, debits_pending, m_Account_klass)
-  DEFINE_ACCESSORS_METHODS(tb_account, debits_posted, m_Account_klass)
-  DEFINE_ACCESSORS_METHODS(tb_account, credits_pending, m_Account_klass)
-  DEFINE_ACCESSORS_METHODS(tb_account, credits_posted, m_Account_klass)
-  DEFINE_ACCESSORS_METHODS(tb_account, user_data_128, m_Account_klass)
-  DEFINE_ACCESSORS_METHODS(tb_account, user_data_64, m_Account_klass)
-  DEFINE_ACCESSORS_METHODS(tb_account, user_data_32, m_Account_klass)
-  DEFINE_ACCESSORS_METHODS(tb_account, ledger, m_Account_klass)
-  DEFINE_ACCESSORS_METHODS(tb_account, code, m_Account_klass)
-  DEFINE_ACCESSORS_METHODS(tb_account, flags, m_Account_klass)
-  DEFINE_ACCESSORS_METHODS(tb_account, timestamp, m_Account_klass)
+  rb_define_method(m_Account_klass, "id",  rb_tb_account_get_id, 0);
+  rb_define_method(m_Account_klass, "id=",  rb_tb_account_set_id, 1);
+  rb_define_method(m_Account_klass, "debits_pending",  rb_tb_account_get_debits_pending, 0);
+  rb_define_method(m_Account_klass, "debits_pending=",  rb_tb_account_set_debits_pending, 1);
+  rb_define_method(m_Account_klass, "debits_posted",  rb_tb_account_get_debits_posted, 0);
+  rb_define_method(m_Account_klass, "debits_posted=",  rb_tb_account_set_debits_posted, 1);
+  rb_define_method(m_Account_klass, "credits_pending",  rb_tb_account_get_credits_pending, 0);
+  rb_define_method(m_Account_klass, "credits_pending=",  rb_tb_account_set_credits_pending, 1);
+  rb_define_method(m_Account_klass, "credits_posted",  rb_tb_account_get_credits_posted, 0);
+  rb_define_method(m_Account_klass, "credits_posted=",  rb_tb_account_set_credits_posted, 1);
+  rb_define_method(m_Account_klass, "user_data_128",  rb_tb_account_get_user_data_128, 0);
+  rb_define_method(m_Account_klass, "user_data_128=",  rb_tb_account_set_user_data_128, 1);
+  rb_define_method(m_Account_klass, "user_data_64",  rb_tb_account_get_user_data_64, 0);
+  rb_define_method(m_Account_klass, "user_data_64=",  rb_tb_account_set_user_data_64, 1);
+  rb_define_method(m_Account_klass, "user_data_32",  rb_tb_account_get_user_data_32, 0);
+  rb_define_method(m_Account_klass, "user_data_32=",  rb_tb_account_set_user_data_32, 1);
+  rb_define_method(m_Account_klass, "ledger",  rb_tb_account_get_ledger, 0);
+  rb_define_method(m_Account_klass, "ledger=",  rb_tb_account_set_ledger, 1);
+  rb_define_method(m_Account_klass, "code",  rb_tb_account_get_code, 0);
+  rb_define_method(m_Account_klass, "code=",  rb_tb_account_set_code, 1);
+  rb_define_method(m_Account_klass, "flags",  rb_tb_account_get_flags, 0);
+  rb_define_method(m_Account_klass, "flags=",  rb_tb_account_set_flags, 1);
+  rb_define_method(m_Account_klass, "timestamp",  rb_tb_account_get_timestamp, 0);
+  rb_define_method(m_Account_klass, "timestamp=",  rb_tb_account_set_timestamp, 1);
 
   VALUE m_Transfer_klass = rb_define_class_under(module, "Transfer", rb_cObject);
   rb_define_alloc_func(m_Transfer_klass, rb_tb_transfer_alloc);
   rb_define_method(m_Transfer_klass, "initialize", rb_tb_transfer_initialize, -1);
-  DEFINE_ACCESSORS_METHODS(tb_transfer, id, m_Transfer_klass)
-  DEFINE_ACCESSORS_METHODS(tb_transfer, debit_account_id, m_Transfer_klass)
-  DEFINE_ACCESSORS_METHODS(tb_transfer, credit_account_id, m_Transfer_klass)
-  DEFINE_ACCESSORS_METHODS(tb_transfer, amount, m_Transfer_klass)
-  DEFINE_ACCESSORS_METHODS(tb_transfer, pending_id, m_Transfer_klass)
-  DEFINE_ACCESSORS_METHODS(tb_transfer, user_data_128, m_Transfer_klass)
-  DEFINE_ACCESSORS_METHODS(tb_transfer, user_data_64, m_Transfer_klass)
-  DEFINE_ACCESSORS_METHODS(tb_transfer, user_data_32, m_Transfer_klass)
-  DEFINE_ACCESSORS_METHODS(tb_transfer, timeout, m_Transfer_klass)
-  DEFINE_ACCESSORS_METHODS(tb_transfer, ledger, m_Transfer_klass)
-  DEFINE_ACCESSORS_METHODS(tb_transfer, code, m_Transfer_klass)
-  DEFINE_ACCESSORS_METHODS(tb_transfer, flags, m_Transfer_klass)
-  DEFINE_ACCESSORS_METHODS(tb_transfer, timestamp, m_Transfer_klass)
+  rb_define_method(m_Transfer_klass, "id",  rb_tb_transfer_get_id, 0);
+  rb_define_method(m_Transfer_klass, "id=",  rb_tb_transfer_set_id, 1);
+  rb_define_method(m_Transfer_klass, "debit_account_id",  rb_tb_transfer_get_debit_account_id, 0);
+  rb_define_method(m_Transfer_klass, "debit_account_id=",  rb_tb_transfer_set_debit_account_id, 1);
+  rb_define_method(m_Transfer_klass, "credit_account_id",  rb_tb_transfer_get_credit_account_id, 0);
+  rb_define_method(m_Transfer_klass, "credit_account_id=",  rb_tb_transfer_set_credit_account_id, 1);
+  rb_define_method(m_Transfer_klass, "amount",  rb_tb_transfer_get_amount, 0);
+  rb_define_method(m_Transfer_klass, "amount=",  rb_tb_transfer_set_amount, 1);
+  rb_define_method(m_Transfer_klass, "pending_id",  rb_tb_transfer_get_pending_id, 0);
+  rb_define_method(m_Transfer_klass, "pending_id=",  rb_tb_transfer_set_pending_id, 1);
+  rb_define_method(m_Transfer_klass, "user_data_128",  rb_tb_transfer_get_user_data_128, 0);
+  rb_define_method(m_Transfer_klass, "user_data_128=",  rb_tb_transfer_set_user_data_128, 1);
+  rb_define_method(m_Transfer_klass, "user_data_64",  rb_tb_transfer_get_user_data_64, 0);
+  rb_define_method(m_Transfer_klass, "user_data_64=",  rb_tb_transfer_set_user_data_64, 1);
+  rb_define_method(m_Transfer_klass, "user_data_32",  rb_tb_transfer_get_user_data_32, 0);
+  rb_define_method(m_Transfer_klass, "user_data_32=",  rb_tb_transfer_set_user_data_32, 1);
+  rb_define_method(m_Transfer_klass, "timeout",  rb_tb_transfer_get_timeout, 0);
+  rb_define_method(m_Transfer_klass, "timeout=",  rb_tb_transfer_set_timeout, 1);
+  rb_define_method(m_Transfer_klass, "ledger",  rb_tb_transfer_get_ledger, 0);
+  rb_define_method(m_Transfer_klass, "ledger=",  rb_tb_transfer_set_ledger, 1);
+  rb_define_method(m_Transfer_klass, "code",  rb_tb_transfer_get_code, 0);
+  rb_define_method(m_Transfer_klass, "code=",  rb_tb_transfer_set_code, 1);
+  rb_define_method(m_Transfer_klass, "flags",  rb_tb_transfer_get_flags, 0);
+  rb_define_method(m_Transfer_klass, "flags=",  rb_tb_transfer_set_flags, 1);
+  rb_define_method(m_Transfer_klass, "timestamp",  rb_tb_transfer_get_timestamp, 0);
+  rb_define_method(m_Transfer_klass, "timestamp=",  rb_tb_transfer_set_timestamp, 1);
 
   VALUE m_AccountFilter_klass = rb_define_class_under(module, "AccountFilter", rb_cObject);
   rb_define_alloc_func(m_AccountFilter_klass, rb_tb_account_filter_alloc);
   rb_define_method(m_AccountFilter_klass, "initialize", rb_tb_account_filter_initialize, -1);
-  DEFINE_ACCESSORS_METHODS(tb_account_filter, account_id, m_AccountFilter_klass)
-  DEFINE_ACCESSORS_METHODS(tb_account_filter, user_data_128, m_AccountFilter_klass)
-  DEFINE_ACCESSORS_METHODS(tb_account_filter, user_data_64, m_AccountFilter_klass)
-  DEFINE_ACCESSORS_METHODS(tb_account_filter, user_data_32, m_AccountFilter_klass)
-  DEFINE_ACCESSORS_METHODS(tb_account_filter, code, m_AccountFilter_klass)
-  DEFINE_ACCESSORS_METHODS(tb_account_filter, timestamp_min, m_AccountFilter_klass)
-  DEFINE_ACCESSORS_METHODS(tb_account_filter, timestamp_max, m_AccountFilter_klass)
-  DEFINE_ACCESSORS_METHODS(tb_account_filter, limit, m_AccountFilter_klass)
-  DEFINE_ACCESSORS_METHODS(tb_account_filter, flags, m_AccountFilter_klass)
+  rb_define_method(m_AccountFilter_klass, "account_id",  rb_tb_account_filter_get_account_id, 0);
+  rb_define_method(m_AccountFilter_klass, "account_id=",  rb_tb_account_filter_set_account_id, 1);
+  rb_define_method(m_AccountFilter_klass, "user_data_128",  rb_tb_account_filter_get_user_data_128, 0);
+  rb_define_method(m_AccountFilter_klass, "user_data_128=",  rb_tb_account_filter_set_user_data_128, 1);
+  rb_define_method(m_AccountFilter_klass, "user_data_64",  rb_tb_account_filter_get_user_data_64, 0);
+  rb_define_method(m_AccountFilter_klass, "user_data_64=",  rb_tb_account_filter_set_user_data_64, 1);
+  rb_define_method(m_AccountFilter_klass, "user_data_32",  rb_tb_account_filter_get_user_data_32, 0);
+  rb_define_method(m_AccountFilter_klass, "user_data_32=",  rb_tb_account_filter_set_user_data_32, 1);
+  rb_define_method(m_AccountFilter_klass, "code",  rb_tb_account_filter_get_code, 0);
+  rb_define_method(m_AccountFilter_klass, "code=",  rb_tb_account_filter_set_code, 1);
+  rb_define_method(m_AccountFilter_klass, "timestamp_min",  rb_tb_account_filter_get_timestamp_min, 0);
+  rb_define_method(m_AccountFilter_klass, "timestamp_min=",  rb_tb_account_filter_set_timestamp_min, 1);
+  rb_define_method(m_AccountFilter_klass, "timestamp_max",  rb_tb_account_filter_get_timestamp_max, 0);
+  rb_define_method(m_AccountFilter_klass, "timestamp_max=",  rb_tb_account_filter_set_timestamp_max, 1);
+  rb_define_method(m_AccountFilter_klass, "limit",  rb_tb_account_filter_get_limit, 0);
+  rb_define_method(m_AccountFilter_klass, "limit=",  rb_tb_account_filter_set_limit, 1);
+  rb_define_method(m_AccountFilter_klass, "flags",  rb_tb_account_filter_get_flags, 0);
+  rb_define_method(m_AccountFilter_klass, "flags=",  rb_tb_account_filter_set_flags, 1);
 
   VALUE m_AccountBalance_klass = rb_define_class_under(module, "AccountBalance", rb_cObject);
   rb_define_alloc_func(m_AccountBalance_klass, rb_tb_account_balance_alloc);
   rb_define_method(m_AccountBalance_klass, "initialize", rb_tb_account_balance_initialize, -1);
-  DEFINE_ACCESSORS_METHODS(tb_account_balance, debits_pending, m_AccountBalance_klass)
-  DEFINE_ACCESSORS_METHODS(tb_account_balance, debits_posted, m_AccountBalance_klass)
-  DEFINE_ACCESSORS_METHODS(tb_account_balance, credits_pending, m_AccountBalance_klass)
-  DEFINE_ACCESSORS_METHODS(tb_account_balance, credits_posted, m_AccountBalance_klass)
-  DEFINE_ACCESSORS_METHODS(tb_account_balance, timestamp, m_AccountBalance_klass)
+  rb_define_method(m_AccountBalance_klass, "debits_pending",  rb_tb_account_balance_get_debits_pending, 0);
+  rb_define_method(m_AccountBalance_klass, "debits_pending=",  rb_tb_account_balance_set_debits_pending, 1);
+  rb_define_method(m_AccountBalance_klass, "debits_posted",  rb_tb_account_balance_get_debits_posted, 0);
+  rb_define_method(m_AccountBalance_klass, "debits_posted=",  rb_tb_account_balance_set_debits_posted, 1);
+  rb_define_method(m_AccountBalance_klass, "credits_pending",  rb_tb_account_balance_get_credits_pending, 0);
+  rb_define_method(m_AccountBalance_klass, "credits_pending=",  rb_tb_account_balance_set_credits_pending, 1);
+  rb_define_method(m_AccountBalance_klass, "credits_posted",  rb_tb_account_balance_get_credits_posted, 0);
+  rb_define_method(m_AccountBalance_klass, "credits_posted=",  rb_tb_account_balance_set_credits_posted, 1);
+  rb_define_method(m_AccountBalance_klass, "timestamp",  rb_tb_account_balance_get_timestamp, 0);
+  rb_define_method(m_AccountBalance_klass, "timestamp=",  rb_tb_account_balance_set_timestamp, 1);
 
   VALUE m_QueryFilter_klass = rb_define_class_under(module, "QueryFilter", rb_cObject);
   rb_define_alloc_func(m_QueryFilter_klass, rb_tb_query_filter_alloc);
   rb_define_method(m_QueryFilter_klass, "initialize", rb_tb_query_filter_initialize, -1);
-  DEFINE_ACCESSORS_METHODS(tb_query_filter, user_data_128, m_QueryFilter_klass)
-  DEFINE_ACCESSORS_METHODS(tb_query_filter, user_data_64, m_QueryFilter_klass)
-  DEFINE_ACCESSORS_METHODS(tb_query_filter, user_data_32, m_QueryFilter_klass)
-  DEFINE_ACCESSORS_METHODS(tb_query_filter, ledger, m_QueryFilter_klass)
-  DEFINE_ACCESSORS_METHODS(tb_query_filter, code, m_QueryFilter_klass)
-  DEFINE_ACCESSORS_METHODS(tb_query_filter, timestamp_min, m_QueryFilter_klass)
-  DEFINE_ACCESSORS_METHODS(tb_query_filter, timestamp_max, m_QueryFilter_klass)
-  DEFINE_ACCESSORS_METHODS(tb_query_filter, limit, m_QueryFilter_klass)
-  DEFINE_ACCESSORS_METHODS(tb_query_filter, flags, m_QueryFilter_klass)
+  rb_define_method(m_QueryFilter_klass, "user_data_128",  rb_tb_query_filter_get_user_data_128, 0);
+  rb_define_method(m_QueryFilter_klass, "user_data_128=",  rb_tb_query_filter_set_user_data_128, 1);
+  rb_define_method(m_QueryFilter_klass, "user_data_64",  rb_tb_query_filter_get_user_data_64, 0);
+  rb_define_method(m_QueryFilter_klass, "user_data_64=",  rb_tb_query_filter_set_user_data_64, 1);
+  rb_define_method(m_QueryFilter_klass, "user_data_32",  rb_tb_query_filter_get_user_data_32, 0);
+  rb_define_method(m_QueryFilter_klass, "user_data_32=",  rb_tb_query_filter_set_user_data_32, 1);
+  rb_define_method(m_QueryFilter_klass, "ledger",  rb_tb_query_filter_get_ledger, 0);
+  rb_define_method(m_QueryFilter_klass, "ledger=",  rb_tb_query_filter_set_ledger, 1);
+  rb_define_method(m_QueryFilter_klass, "code",  rb_tb_query_filter_get_code, 0);
+  rb_define_method(m_QueryFilter_klass, "code=",  rb_tb_query_filter_set_code, 1);
+  rb_define_method(m_QueryFilter_klass, "timestamp_min",  rb_tb_query_filter_get_timestamp_min, 0);
+  rb_define_method(m_QueryFilter_klass, "timestamp_min=",  rb_tb_query_filter_set_timestamp_min, 1);
+  rb_define_method(m_QueryFilter_klass, "timestamp_max",  rb_tb_query_filter_get_timestamp_max, 0);
+  rb_define_method(m_QueryFilter_klass, "timestamp_max=",  rb_tb_query_filter_set_timestamp_max, 1);
+  rb_define_method(m_QueryFilter_klass, "limit",  rb_tb_query_filter_get_limit, 0);
+  rb_define_method(m_QueryFilter_klass, "limit=",  rb_tb_query_filter_set_limit, 1);
+  rb_define_method(m_QueryFilter_klass, "flags",  rb_tb_query_filter_get_flags, 0);
+  rb_define_method(m_QueryFilter_klass, "flags=",  rb_tb_query_filter_set_flags, 1);
 }

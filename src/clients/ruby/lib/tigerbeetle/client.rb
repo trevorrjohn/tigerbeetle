@@ -18,7 +18,7 @@ module TigerBeetle
     def create_accounts(*accounts, &block)
       raise ArgumentError, "Block is required" unless block_given?
 
-      accounts  = array_wrap(accounts)
+      accounts = array_wrap(accounts)
       client.submit(Bindings::Operation::CREATE_ACCOUNTS, accounts, &block)
     end
 
@@ -42,8 +42,7 @@ module TigerBeetle
     end
 
     # GetAccountBalances(filter types.AccountFilter) ([]types.AccountBalance, error)
-    def get_account_balances(filter)
-    end
+    def get_account_balances(filter) end
 
     # QueryAccounts(filter types.QueryFilter) ([]types.Account, error)
     def query_accounts(filter)

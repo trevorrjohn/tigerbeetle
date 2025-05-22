@@ -1,5 +1,6 @@
 #include <ruby.h>
 #include "tb_client.h"
+#include "tb_helpers.h"
 #include "tb_bindings.h"
 
 const size_t MAX_BATCH_SIZE = 8189;
