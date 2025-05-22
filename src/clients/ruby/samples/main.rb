@@ -6,14 +6,17 @@ require "tigerbeetle"
 
 PORT = ENV.fetch("TB_PORT", "3000").to_s
 CLUSTER_ID = ENV.fetch("TB_CLUSTER_ID", "0").to_i
-ledger = ENV.fetch("TB_LEDGER", "1").to_s
-code = ENV.fetch("TB_CODE", "0").to_s
+ledger = ENV.fetch("TB_LEDGER", "1").to_i
+code = ENV.fetch("TB_CODE", "0").to_i
 
 client = TigerBeetle.connect(addresses: PORT, cluster_id: CLUSTER_ID)
 
 account1 = TigerBeetle::Bindings::Account.new(
-  id: "1", ledger:, code:, flags: TigerBeetle::Bindings::AccountFlags::DEBITS_MUST_NOT_EXCEED_CREDITS
+  id: "1", ledger:, code:
 )
+# account1 = TigerBeetle::Bindings::Account.new(
+#   id: "1", ledger:, code:, flags: TigerBeetle::Bindings::AccountFlags::DEBITS_MUST_NOT_EXCEED_CREDITS
+# )
 account2 = TigerBeetle::Bindings::Account.new(
   id: "1", ledger:, code:, flags: TigerBeetle::Bindings::AccountFlags::CREDITS_MUST_NOT_EXCEED_DEBITS
 )
@@ -21,7 +24,8 @@ account2 = TigerBeetle::Bindings::Account.new(
 results_queue = Queue.new
 
 client.create_accounts(account1, account2) do |results|
-  results_queue << results end
+  results_queue << results
+end
 
 results = results_queue.pop
 

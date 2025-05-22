@@ -129,27 +129,28 @@ fn emit_rb_class_for_struct(buffer: *Buffer, comptime ctype: []const u8) void {
         \\  TypedData_Get_Struct(self, {s}, &{s}, wrapper);
         \\
         \\  VALUE keys = rb_funcall(kwargs, rb_intern("keys"), 0);
-        \\  long num_keys = RARRAY_LEN(keys);
-        \\  // strlen of setter + NULL byte
-        \\  for (long i = 0; i < num_keys; i++) {{
-        \\      VALUE rb_key = RARRAY_AREF(keys, i);
-        \\      VALUE value = rb_hash_aref(kwargs, rb_key);
-        \\      const char *field_name = rb_id2name(SYM2ID(rb_key));
-        \\      // `<field_name>=` == field length + 1 null byte
-        \\      size_t field_len = strlen(field_name) + 2; // =\0x
-        \\      char* rb_method_name = malloc(field_len);
-        \\      if (rb_method_name == NULL) {{
-        \\          rb_raise(rb_eNoMemError, "Failed to allocate memory for {s}");
+        \\  long keys_len = RARRAY_LEN(keys);
+        \\
+        \\  for (long i = 0; i < keys_len; i++) {{
+        \\      VALUE key = RARRAY_AREF(keys, i);
+        \\      VALUE value = rb_hash_aref(kwargs, key);
+        \\      VALUE key_str = rb_funcall(key, rb_intern("to_s"), 0);
+        \\      const char *key_cstr = StringValueCStr(key_str);
+        \\      size_t setter_len = strlen(key_cstr) + 2; // +1 for '=', +1 for '\0'
+        \\      char *setter_name = ALLOCA_N(char, setter_len);
+        \\      snprintf(setter_name, setter_len, "%s=", key_cstr);
+        \\      ID setter_id = rb_intern(setter_name);
+        \\      if (!rb_respond_to(self, setter_id)) {{
+        \\        rb_raise(rb_eNoMethodError, "undefined method '%s' for object", setter_name);
         \\      }}
-        \\      snprintf(rb_method_name, field_len, "%s=", field_name);
-        \\      rb_funcall(self, rb_intern(rb_method_name), 1, value);
-        \\      free(rb_method_name);
+        \\
+        \\      rb_funcall(self, setter_id, 1, value);
         \\  }}
         \\  return self;
         \\}}
         \\
         \\
-            , .{rb_prefix, tb_struct_t, tb_struct_t, rb_struct_type, ctype});
+            , .{rb_prefix, tb_struct_t, tb_struct_t, rb_struct_type});
 }
 
 fn emit_uint128_rb_accessors(buffer: *Buffer, comptime ctype: []const u8, comptime field_name: []const u8) void {
@@ -201,18 +202,19 @@ fn emit_uint_rb_accessors(buffer: *Buffer, comptime ctype: []const u8, comptime 
         \\
         , .{rb_prefix, field_name, tb_struct_t, tb_struct_t, rb_struct_type, field_name});
 
+    // TODO optimize this based on uint_type?
     buffer.print(
         \\static VALUE {s}_set_{s}(VALUE self, VALUE val) {{
         \\  {s} *obj;
         \\  TypedData_Get_Struct(self, {s}, &{s}, obj);
-        \\  obj->{s} = ({s})ULL2NUM(obj->{s});
+        \\  obj->{s} = ({s})NUM2ULL(val);
         \\  return val;
         \\}}
         \\
         \\
         , .{
             rb_prefix, field_name, tb_struct_t, tb_struct_t,
-            rb_struct_type, field_name, uint_type, field_name
+            rb_struct_type, field_name, uint_type
         });
 }
 
