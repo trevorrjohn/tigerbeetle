@@ -89,7 +89,7 @@ fn emit_rb_class_for_struct(buffer: *Buffer, comptime ctype: []const u8) void {
         \\}}
         \\
         \\
-        , .{rb_size_fn, tb_struct_t});
+    , .{ rb_size_fn, tb_struct_t });
 
     buffer.print(
         \\const rb_data_type_t {s} = {{
@@ -104,8 +104,7 @@ fn emit_rb_class_for_struct(buffer: *Buffer, comptime ctype: []const u8) void {
         \\}};
         \\
         \\
-        ,
-        .{rb_struct_type, tb_struct_t, rb_size_fn});
+    , .{ rb_struct_type, tb_struct_t, rb_size_fn });
 
     buffer.print(
         \\static VALUE {s}_alloc(VALUE self) {{
@@ -114,7 +113,7 @@ fn emit_rb_class_for_struct(buffer: *Buffer, comptime ctype: []const u8) void {
         \\}}
         \\
         \\
-        , .{rb_prefix, tb_struct_t, tb_struct_t, rb_struct_type});
+    , .{ rb_prefix, tb_struct_t, tb_struct_t, rb_struct_type });
 
     buffer.print(
         \\static VALUE {s}_initialize(int argc, VALUE *argv, VALUE self) {{
@@ -150,7 +149,7 @@ fn emit_rb_class_for_struct(buffer: *Buffer, comptime ctype: []const u8) void {
         \\}}
         \\
         \\
-            , .{rb_prefix, tb_struct_t, tb_struct_t, rb_struct_type});
+    , .{ rb_prefix, tb_struct_t, tb_struct_t, rb_struct_type });
 }
 
 fn emit_uint128_rb_accessors(buffer: *Buffer, comptime ctype: []const u8, comptime field_name: []const u8) void {
@@ -166,7 +165,7 @@ fn emit_uint128_rb_accessors(buffer: *Buffer, comptime ctype: []const u8, compti
         \\}}
         \\
         \\
-        , .{rb_prefix, field_name, tb_struct_t, tb_struct_t, rb_struct_type, field_name});
+    , .{ rb_prefix, field_name, tb_struct_t, tb_struct_t, rb_struct_type, field_name });
 
     buffer.print(
         \\static VALUE {s}_set_{s}(VALUE self, VALUE val) {{
@@ -177,14 +176,14 @@ fn emit_uint128_rb_accessors(buffer: *Buffer, comptime ctype: []const u8, compti
         \\}}
         \\
         \\
-        , .{rb_prefix, field_name, tb_struct_t, tb_struct_t, rb_struct_type, field_name});
+    , .{ rb_prefix, field_name, tb_struct_t, tb_struct_t, rb_struct_type, field_name });
 }
 
 fn emit_uint_rb_accessors(buffer: *Buffer, comptime ctype: []const u8, comptime field_name: []const u8, comptime uint_size: u8) void {
     const tb_struct_t = ctype ++ "_t";
     const rb_prefix = "rb_" ++ ctype;
     const rb_struct_type = rb_prefix ++ "_type";
-    const uint_type = switch(uint_size) {
+    const uint_type = switch (uint_size) {
         8 => "uint8_t",
         16 => "uint16_t",
         32 => "uint32_t",
@@ -200,7 +199,7 @@ fn emit_uint_rb_accessors(buffer: *Buffer, comptime ctype: []const u8, comptime 
         \\}}
         \\
         \\
-        , .{rb_prefix, field_name, tb_struct_t, tb_struct_t, rb_struct_type, field_name});
+    , .{ rb_prefix, field_name, tb_struct_t, tb_struct_t, rb_struct_type, field_name });
 
     // TODO optimize this based on uint_type?
     buffer.print(
@@ -212,10 +211,7 @@ fn emit_uint_rb_accessors(buffer: *Buffer, comptime ctype: []const u8, comptime 
         \\}}
         \\
         \\
-        , .{
-            rb_prefix, field_name, tb_struct_t, tb_struct_t,
-            rb_struct_type, field_name, uint_type
-        });
+    , .{ rb_prefix, field_name, tb_struct_t, tb_struct_t, rb_struct_type, field_name, uint_type });
 }
 
 fn emit_void_ptr_rb_accessors(buffer: *Buffer, comptime ctype: []const u8, comptime field_name: []const u8) void {
@@ -230,7 +226,7 @@ fn emit_void_ptr_rb_accessors(buffer: *Buffer, comptime ctype: []const u8, compt
         \\}}
         \\
         \\
-        , .{rb_prefix, field_name, field_name});
+    , .{ rb_prefix, field_name, field_name });
 
     buffer.print(
         \\static VALUE {s}_set_{s}(VALUE self, VALUE val) {{
@@ -255,28 +251,18 @@ fn emit_void_ptr_rb_accessors(buffer: *Buffer, comptime ctype: []const u8, compt
         \\}}
         \\
         \\
-        , .{
-            rb_prefix, field_name, tb_struct_t, tb_struct_t,
-            rb_struct_type, field_name, field_name
-        });
+    , .{ rb_prefix, field_name, tb_struct_t, tb_struct_t, rb_struct_type, field_name, field_name });
 }
 
-fn emit_rb_define_accessors(
-    buffer: *Buffer,
-    comptime class_name: []const u8,
-    comptime ctype: []const u8,
-    comptime field_name: []const u8
-) void {
+fn emit_rb_define_accessors(buffer: *Buffer, comptime class_name: []const u8, comptime ctype: []const u8, comptime field_name: []const u8) void {
     const rb_prefix = "rb_" ++ ctype;
 
     buffer.print(
         \\  rb_define_method({s}, "{s}",  {s}_get_{s}, 0);
         \\  rb_define_method({s}, "{s}=",  {s}_set_{s}, 1);
         \\
-        , .{class_name, field_name, rb_prefix, field_name,
-            class_name, field_name, rb_prefix, field_name });
+    , .{ class_name, field_name, rb_prefix, field_name, class_name, field_name, rb_prefix, field_name });
 }
-
 
 fn emit_enum(
     buffer: *Buffer,
@@ -409,17 +395,12 @@ fn emit_ruby_method_accessors(
         \\  rb_define_alloc_func({s}, rb_{s}_alloc);
         \\  rb_define_method({s}, "initialize", rb_{s}_initialize, -1);
         \\
-        , .{ ruby_class, ruby_name, ruby_class, tb_struct, ruby_class, tb_struct });
+    , .{ ruby_class, ruby_name, ruby_class, tb_struct, ruby_class, tb_struct });
     inline for (type_info.fields) |field| {
         if (comptime std.mem.startsWith(u8, field.name, "deprecated_")) continue;
         if (comptime std.mem.eql(u8, field.name, "reserved")) continue;
         if (comptime std.mem.eql(u8, field.name, "opaque")) continue;
-        emit_rb_define_accessors(
-            buffer,
-            ruby_class,
-            tb_struct,
-            field.name
-        );
+        emit_rb_define_accessors(buffer, ruby_class, tb_struct, field.name);
     }
 }
 
@@ -444,7 +425,7 @@ pub fn main() !void {
         \\void tb_define_enums_and_bitmasks(VALUE module) {{
         \\
         \\
-        , .{});
+    , .{});
 
     // Emit enum and bitmask declarations.
     inline for (mappings_all) |type_mapping| {
@@ -483,7 +464,7 @@ pub fn main() !void {
                     const tb_struct = if (type_mapping.len > 2) type_mapping[2] else @compileError("Missing tb_struct name");
                     try emit_struct_native_extensions(&buffer, info, ruby_name, tb_struct);
                 },
-                },
+            },
             else => continue,
         }
     }
@@ -493,7 +474,7 @@ pub fn main() !void {
         \\//Ruby method accessors
         \\void tb_define_ruby_accessors(VALUE module) {{
         \\
-            , .{});
+    , .{});
     inline for (mappings_all) |type_mapping| {
         const ZigType = type_mapping[0];
         const ruby_name = type_mapping[1];
@@ -506,10 +487,10 @@ pub fn main() !void {
                     const tb_struct = if (type_mapping.len > 2) type_mapping[2] else @compileError("Missing tb_struct name");
                     try emit_ruby_method_accessors(&buffer, info, ruby_name, tb_struct);
                 },
-                },
+            },
             else => continue,
         }
     }
     buffer.print("}}\n", .{});
     try std.io.getStdOut().writeAll(buffer.inner.items);
-        }
+}

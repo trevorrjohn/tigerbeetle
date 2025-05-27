@@ -137,7 +137,7 @@ typedef struct {
   uint32_t size;
 } completion_result;
 
-void* completion_callback_with_gvl(void* data) {
+static void* completion_callback_with_gvl(void* data) {
   printf("completion callback with gvl\n");
   completion_result* res = (completion_result*) data;
   VALUE rb_results = Qnil;
@@ -185,11 +185,17 @@ void completion_callback(
   res.callback = (rb_callback_t*)packet->user_data;
   res.data = (char*)malloc(size);
   if (res.data == NULL) {
-    rb_raise(rb_eNoMemError, "Out of memory");
+    printf("Out of memory\n");
     return;
   }
   memcpy(&res.data, data, size);
   res.size = size;
+
+  if (rb_thread_alone()) {
+    printf("Thread is alone\n");
+  } else {
+    printf("Thread is not alone\n");
+  }
 
   (void)rb_thread_call_with_gvl(completion_callback_with_gvl, &res);
 
