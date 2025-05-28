@@ -1238,7 +1238,6 @@ fn build_go_client(
 
         lib.step.dependOn(&bindings.step);
 
-        // NB: New way to do lib.setOutputDir(). The ../ is important to escape zig-cache/.
         step_clients_go.dependOn(&b.addInstallFile(
             lib.getEmittedBin(),
             b.pathJoin(&.{ "../src/clients/go/pkg/native/", name, lib.out_filename }),
@@ -1464,38 +1463,9 @@ fn build_ruby_client(
         mode: Mode,
     },
 ) void {
-    const tb_client_header_copy = Generated.file_copy(b, .{
-        .from = options.tb_client_header,
-        .path = "./src/clients/ruby/ext/tb_client/tb_client.h",
-    });
-
-    const ruby_native_bindings_generator = b.addExecutable(.{
-        .name = "ruby_native_bindings",
-        .root_source_file = b.path("src/clients/ruby/ruby_native_bindings.zig"),
-        .target = b.graph.host,
-    });
-    ruby_native_bindings_generator.step.dependOn(&tb_client_header_copy.step);
-    ruby_native_bindings_generator.root_module.addImport("vsr", options.vsr_module);
-    ruby_native_bindings_generator.root_module.addOptions("vsr_options", options.vsr_options);
-    const native_bindings = Generated.file(b, .{
-        .generator = ruby_native_bindings_generator,
-        .path = "./src/clients/ruby/ext/tigerbeetle/tb_bindings.c",
-    });
-    // const ruby_bindings_generator = b.addExecutable(.{
-    //     .name = "ruby_bindings",
-    //     .root_source_file = b.path("src/clients/ruby/ruby_bindings.zig"),
-    //     .target = b.graph.host,
-    // });
-    // ruby_bindings_generator.step.dependOn(&native_bindings.step);
-    // // ruby_bindings_generator.step.dependOn(&tb_client_header_copy.step);
-    // ruby_bindings_generator.root_module.addImport("vsr", options.vsr_module);
-    // ruby_bindings_generator.root_module.addOptions("vsr_options", options.vsr_options);
-    // const bindings = Generated.file(b, .{
-    //     .generator = ruby_bindings_generator,
-    //     .path = "./src/clients/ruby/lib/tigerbeetle/bindings.rb",
-    // });
-
     inline for (platforms) |platform| {
+        if (!comptime std.mem.startsWith(u8, platform[0], "x86_64-macos")) continue;
+
         const cross_target = CrossTarget.parse(.{
             .arch_os_abi = platform[0],
             .cpu_features = platform[2],
@@ -1503,11 +1473,12 @@ fn build_ruby_client(
         const resolved_target = b.resolveTargetQuery(cross_target);
 
         const shared_lib = b.addSharedLibrary(.{
-            .name = "tb_client",
-            .root_source_file = b.path("src/tigerbeetle/libtb_client.zig"),
+            .name = "rb_tigerbeetle",
+            .root_source_file = b.path("src/clients/ruby/tigerbeetle.zig"),
             .target = resolved_target,
             .optimize = options.mode,
         });
+
         shared_lib.linkLibC();
 
         if (resolved_target.result.os.tag == .windows) {
@@ -1518,18 +1489,27 @@ fn build_ruby_client(
         shared_lib.root_module.addImport("vsr", options.vsr_module);
         shared_lib.root_module.addOptions("vsr_options", options.vsr_options);
 
-        step_clients_ruby.dependOn(&b.addInstallFile(
-            shared_lib.getEmittedBin(),
-            b.pathJoin(&.{
-                "../src/clients/ruby/ext/tb_client/",
-                platform[0],
-                shared_lib.out_filename,
-            }),
-        ).step);
-    }
+        // Only add Ruby includes for macOS (your native platform)
+        if (resolved_target.result.os.tag == .macos) {
+            shared_lib.addIncludePath(.{ .cwd_relative = "/Users/tj/.asdf/installs/ruby/3.5-dev/include/ruby-3.5.0+1" });
+            shared_lib.addIncludePath(.{ .cwd_relative = "/Users/tj/.asdf/installs/ruby/3.5-dev/include/ruby-3.5.0+1/arm64-darwin24" });
+        }
 
-    // step_clients_ruby.dependOn(&bindings.step);
-    step_clients_ruby.dependOn(&native_bindings.step);
+        // Create the install step
+        const install_path = b.pathJoin(&.{
+            "src/clients/ruby/ext/tigerbeetle/",
+            platform[0],
+            shared_lib.out_filename,
+        });
+
+        const install_step = b.addInstallFile(
+            shared_lib.getEmittedBin(),
+            install_path,
+        );
+
+        step_clients_ruby.dependOn(&install_step.step);
+        b.getInstallStep().dependOn(&install_step.step);
+    }
 }
 
 fn build_python_client(
