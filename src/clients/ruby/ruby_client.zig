@@ -3,6 +3,8 @@ const vsr = @import("vsr");
 const exports = vsr.tb_client.exports;
 const assert = std.debug.assert;
 
+const ruby = @import("bridge.zig");
+
 const constants = vsr.constants;
 const IO = vsr.io.IO;
 
@@ -13,8 +15,6 @@ const tb = vsr.tigerbeetle;
 
 const c_headers = @import("tb_client_header");
 const c_type_mappings = c_headers.type_mappings;
-
-const ruby = @cImport(@cInclude("ruby.h"));
 
 /// VSR type mappings: these will always be the same regardless of state machine.
 const mappings_vsr = .{

@@ -1492,15 +1492,15 @@ fn build_ruby_client(
         shared_lib.addIncludePath(options.tb_client_header.dirname());
 
         // TODO: Remove hardcoding link to Ruby library
-        if (comptime std.mem.eql(u8, platform[0], "x86_64-linux-gnu.2.27")) {
-            shared_lib.addIncludePath(.{ .cwd_relative = "/home/trevor/.asdf/installs/ruby/3.4.1/include/ruby-3.4.0" });
-            shared_lib.addIncludePath(.{ .cwd_relative = "/home/trevor/.asdf/installs/ruby/3.4.1/include/ruby-3.4.0/x86_64-linux" });
-        } else if (comptime std.mem.eql(u8, platform[0], "aarch64-macos")) {
-            shared_lib.addIncludePath(.{ .cwd_relative = "/Users/tj/.asdf/installs/ruby/3.5-dev/include/ruby-3.5.0+1" });
-            shared_lib.addIncludePath(.{ .cwd_relative = "/Users/tj/.asdf/installs/ruby/3.5-dev/include/ruby-3.5.0+1/arm64-darwin24" });
-        }
+        // if (comptime std.mem.eql(u8, platform[0], "x86_64-linux-gnu.2.27")) {
+        //     shared_lib.addIncludePath(.{ .cwd_relative = "/home/trevor/.asdf/installs/ruby/3.4.1/include/ruby-3.4.0" });
+        //     shared_lib.addIncludePath(.{ .cwd_relative = "/home/trevor/.asdf/installs/ruby/3.4.1/include/ruby-3.4.0/x86_64-linux" });
+        // } else if (comptime std.mem.eql(u8, platform[0], "aarch64-macos")) {
+        //     shared_lib.addIncludePath(.{ .cwd_relative = "/Users/tj/.asdf/installs/ruby/3.5-dev/include/ruby-3.5.0+1" });
+        //     shared_lib.addIncludePath(.{ .cwd_relative = "/Users/tj/.asdf/installs/ruby/3.5-dev/include/ruby-3.5.0+1/arm64-darwin24" });
+        // }
 
-        shared_lib.linker_allow_shlib_undefined = true;
+        // shared_lib.linker_allow_shlib_undefined = true;
 
         shared_lib.linkLibC();
 
@@ -1511,6 +1511,10 @@ fn build_ruby_client(
 
         shared_lib.root_module.addImport("vsr", options.vsr_module);
         shared_lib.root_module.addOptions("vsr_options", options.vsr_options);
+
+        const bridge_install = b.addInstallFile(b.path("src/clients/ruby/bridge.c"), "../src/clients/ruby/ext/rb_tigerbeetle/bridge.c");
+        shared_lib.addIncludePath(.{ .cwd_relative = "/home/trevor/.asdf/installs/ruby/3.4.1/include/ruby-3.4.0" });
+        shared_lib.addIncludePath(.{ .cwd_relative = "/home/trevor/.asdf/installs/ruby/3.4.1/include/ruby-3.4.0/x86_64-linux" });
 
         // First, make sure the shared library compiles successfully
         // Install the shared library (platform-specific path)
@@ -1523,6 +1527,7 @@ fn build_ruby_client(
             }),
         );
 
+        step_clients_ruby.dependOn(&bridge_install.step);
         lib_install.step.dependOn(&shared_lib.step);
         step_clients_ruby.dependOn(&lib_install.step);
     }
