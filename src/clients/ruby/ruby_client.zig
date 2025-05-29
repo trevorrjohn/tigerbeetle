@@ -15,6 +15,7 @@ const c_headers = @import("tb_client_header");
 const c_type_mappings = c_headers.type_mappings;
 
 const ruby = @cImport(@cInclude("ruby.h"));
+const c = @cImport(@cInclude("tb_client.h"));
 
 /// VSR type mappings: these will always be the same regardless of state machine.
 const mappings_vsr = .{
@@ -84,13 +85,6 @@ fn to_upper_case(comptime input: []const u8) [input.len + 1:0]u8 {
     return result;
 }
 
-fn convert_struct_to_ruby_class(module: ruby.VALUE, comptime ZigType: type, comptime ruby_name: []const u8) void {
-    const type_info = @typeInfo(ZigType);
-    assert(type_info == .Struct);
-    _ = module;
-    _ = ruby_name;
-}
-
 fn convert_enum_to_ruby_const(module: ruby.VALUE, comptime ZigType: type, comptime ruby_name: []const u8) void {
     const ruby_enum = ruby.rb_define_module_under(module, ruby_name.ptr);
     switch (@typeInfo(ZigType)) {
@@ -121,4 +115,48 @@ fn convert_enum_to_ruby_const(module: ruby.VALUE, comptime ZigType: type, compti
         },
         else => @compileError("Invalid conversion to enum: " ++ ZigType),
     }
+}
+
+fn ruby_c_struct(comptime CType: type) type {
+    return struct {
+        const Self = @This();
+        const type_name = @typeName(CType);
+
+        fn alloc_fn(self: ruby.VALUE) callconv(.C) ruby.VALUE {
+            return ruby.rb_data_typed_object_alloc(self, null, &Self.rb_data_type);
+        }
+
+        fn free_fn(ptr: ?*anyopaque) callconv(.C) void {
+            if (ptr) |p| {
+                ruby.xfree(p);
+            }
+        }
+
+        fn size_fn(ptr: ?*const anyopaque) callconv(.C) usize {
+            _ = ptr; // Unused in this context, but required by the C ABI.
+            return @sizeOf(CType);
+        }
+
+        const rb_data_type = ruby.rb_data_type_t{
+            .wrap_struct_name = type_name,
+            .function = .{
+                .dmark = null,
+                .dfree = free_fn,
+                .dsize = size_fn,
+            },
+            .data = null,
+            .flags = ruby.RUBY_TYPED_FREE_IMMEDIATELY,
+        };
+    };
+}
+
+fn convert_struct_to_ruby_class(module: ruby.VALUE, comptime ZigType: type, comptime ruby_name: []const u8) void {
+    const type_info = @typeInfo(ZigType);
+    assert(type_info == .Struct);
+
+    const c_type_name = comptime find_c_type_name(ZigType);
+    const c_type = @field(c, c_type_name);
+    const c_struct = comptime ruby_c_struct(c_type);
+    const rb_class = ruby.rb_define_class_under(module, ruby_name.ptr, ruby.rb_cObject);
+    ruby.rb_define_alloc_func(rb_class, c_struct.alloc_fn);
 }
