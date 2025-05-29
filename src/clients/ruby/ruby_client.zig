@@ -15,7 +15,6 @@ const c_headers = @import("tb_client_header");
 const c_type_mappings = c_headers.type_mappings;
 
 const ruby = @cImport(@cInclude("ruby.h"));
-const c = @cImport(@cInclude("tb_client.h"));
 
 /// VSR type mappings: these will always be the same regardless of state machine.
 const mappings_vsr = .{
@@ -117,10 +116,10 @@ fn convert_enum_to_ruby_const(module: ruby.VALUE, comptime ZigType: type, compti
     }
 }
 
-fn ruby_c_struct(comptime CType: type) type {
+fn ruby_c_struct(comptime ZigType: type) type {
     return struct {
         const Self = @This();
-        const type_name = @typeName(CType);
+        const type_name = @typeName(ZigType) ++ "\x00";
 
         fn alloc_fn(self: ruby.VALUE) callconv(.C) ruby.VALUE {
             return ruby.rb_data_typed_object_alloc(self, null, &Self.rb_data_type);
@@ -134,11 +133,11 @@ fn ruby_c_struct(comptime CType: type) type {
 
         fn size_fn(ptr: ?*const anyopaque) callconv(.C) usize {
             _ = ptr; // Unused in this context, but required by the C ABI.
-            return @sizeOf(CType);
+            return @sizeOf(ZigType);
         }
 
         const rb_data_type = ruby.rb_data_type_t{
-            .wrap_struct_name = type_name,
+            .wrap_struct_name = &type_name[0],
             .function = .{
                 .dmark = null,
                 .dfree = free_fn,
@@ -154,9 +153,8 @@ fn convert_struct_to_ruby_class(module: ruby.VALUE, comptime ZigType: type, comp
     const type_info = @typeInfo(ZigType);
     assert(type_info == .Struct);
 
-    const c_type_name = comptime find_c_type_name(ZigType);
-    const c_type = @field(c, c_type_name);
-    const c_struct = comptime ruby_c_struct(c_type);
+    // const c_type_name = comptime find_c_type_name(ZigType);
+    const c_struct = comptime ruby_c_struct(ZigType);
     const rb_class = ruby.rb_define_class_under(module, ruby_name.ptr, ruby.rb_cObject);
     ruby.rb_define_alloc_func(rb_class, c_struct.alloc_fn);
 }
