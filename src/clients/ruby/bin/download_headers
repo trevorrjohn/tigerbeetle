@@ -1,0 +1,86 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require 'net/http'
+require 'fileutils'
+require 'tmpdir'
+
+class HeaderDownloader
+  RUBY_VERSIONS = %w[3.2.0 3.3.0 3.4.0].freeze
+  HEADERS_DIR = File.expand_path("../vendor", __dir__)
+
+  def download_all
+    RUBY_VERSIONS.each do |version|
+      download_version(version)
+    end
+  end
+
+  private
+
+  def download_version(version)
+    puts "Downloading Ruby #{version} headers..."
+
+    major_minor = version.match(/(\d+\.\d+)/)[1]
+    headers_path = "#{HEADERS_DIR}/ruby-#{major_minor}"
+
+    return if Dir.exist?(headers_path)
+
+    FileUtils.mkdir_p(headers_path)
+
+    # Download Ruby source
+    Dir.mktmpdir do |tmp_dir|
+      tarball = "ruby-#{version}.tar.gz"
+      url = "https://cache.ruby-lang.org/pub/ruby/#{major_minor}/#{tarball}"
+
+      puts "  Downloading #{url}..."
+      system("curl -L #{url} -o #{tmp_dir}/#{tarball}") or abort "Download failed"
+
+      puts "  Extracting headers..."
+      system("tar -xzf #{tmp_dir}/#{tarball} -C #{tmp_dir}") or abort "Extract failed"
+
+      # Copy relevant header files
+      source_dir = "#{tmp_dir}/ruby-#{version}"
+      copy_headers(source_dir, headers_path)
+    end
+
+    puts "  Headers saved to #{headers_path}"
+  end
+
+  def copy_headers(source_dir, dest_dir)
+    # Ensure destination exists
+    FileUtils.mkdir_p(dest_dir)
+
+    # Copy the main ruby.h
+    main_header = "#{source_dir}/include/ruby.h"
+    if File.exist?(main_header)
+      FileUtils.cp(main_header, dest_dir)
+    end
+
+    # Copy the ruby/ subdirectory with core headers
+    ruby_subdir = "#{source_dir}/include/ruby"
+    if Dir.exist?(ruby_subdir)
+      FileUtils.cp_r(ruby_subdir, dest_dir)
+    end
+
+    # For some Ruby versions, you might also need these generated headers
+    # Note: These are usually created during ./configure, so they might not exist
+    # in the raw source. You may need to generate them.
+    generated_headers = %w[
+      config.h
+      ruby/config.h
+    ]
+
+    generated_headers.each do |header|
+      src_path = "#{source_dir}/#{header}"
+      if File.exist?(src_path)
+        dest_path = File.join(dest_dir, File.dirname(header))
+        FileUtils.mkdir_p(dest_path)
+        FileUtils.cp(src_path, dest_path)
+      end
+    end
+
+    puts "    Copied essential headers only"
+  end
+end
+
+HeaderDownloader.new.download_all if __FILE__ == $0
