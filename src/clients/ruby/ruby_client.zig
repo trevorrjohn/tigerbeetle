@@ -15,8 +15,6 @@ const Storage = vsr.storage.StorageType(IO, Tracer);
 const StateMachine = vsr.state_machine.StateMachineType(Storage, constants.state_machine_config);
 const tb = vsr.tigerbeetle;
 
-// const ruby = @cImport(@cInclude("stub_ruby.h"));
-
 const MAX_BATCH_SIZE = 8192;
 
 const SKIP_PREFIXES = [_][]const u8{ "reserved", "opaque", "deprecated" };
@@ -59,8 +57,10 @@ pub export fn initialize_ruby_client() callconv(.C) void {
         setup_struct.init_methods(rb_tb_client);
     }
 
-    const rb_client = ruby.rb_const_get(rb_tb_client, ruby.rb_intern("Client"));
-    tb_client_struct().init_methods(rb_client);
+    const tb_client_methods = build_tb_client_methods();
+    _ = ruby.rb_define_module_function(module, "init", @ptrCast(&tb_client_methods.init), 3);
+    _ = ruby.rb_define_module_function(module, "deinit", @ptrCast(&tb_client_methods.deinit), 1);
+    _ = ruby.rb_define_module_function(module, "submit", @ptrCast(&tb_client_methods.submit), 3);
 }
 
 fn convert_to_ruby_class(comptime ZigType: type, comptime ruby_name: []const u8) type {
@@ -357,7 +357,7 @@ const SupportedOperationParsers = [_]Parser{
     Parser{ .operation = Operation.query_transfers, .from_ruby = create_from_ruby(exports.tb_query_filter_t, .{ .isArray = false }), .to_ruby = create_to_ruby(exports.tb_transfer_t) },
 };
 
-fn tb_client_struct() type {
+fn build_tb_client_methods() type {
     const Client = exports.tb_client_t;
     const Packet = exports.tb_packet_t;
 
@@ -365,12 +365,6 @@ fn tb_client_struct() type {
     const c_allocator = std.heap.c_allocator;
 
     return struct {
-        pub fn init_methods(rb_client: ruby.VALUE) void {
-            _ = ruby.rb_define_method(rb_client, "init", @ptrCast(&init), 2);
-            _ = ruby.rb_define_method(rb_client, "deinit", @ptrCast(&deinit), 0);
-            _ = ruby.rb_define_method(rb_client, "submit", @ptrCast(&submit), 2);
-        }
-
         fn on_completion(
             completion_ctx: usize,
             packet: *Packet,

@@ -604,11 +604,12 @@ test_transfer
 
 ADDRESSES = ENV.fetch("TB_ADDRESSES", "3000").to_s
 CLUSTER_ID = ENV.fetch("TB_CLUSTER_ID", "0").to_i
-client = Client.new
-client.init(ADDRESSES, CLUSTER_ID)
 
 begin
-  empty_lookup = client.submit(Operation::LOOKUP_ACCOUNTS, [10000])
+  client = TBClient::Client.new
+  init_status = TBClient.init(client, ADDRESSES, CLUSTER_ID)
+  raise "Bad init status #{init_status}" unless init_status == InitStatus::SUCCES
+  empty_lookup = TBClient.submit(client, Operation::LOOKUP_ACCOUNTS, [10000])
   if empty_lookup.size != 0
     raise "Expected empty lookup for non-existent account, got #{empty_lookup.size} results"
   end
@@ -626,7 +627,7 @@ begin
     ledger: 1,
     user_data_128: 4202
   )
-  create_accounts_result = client.submit(Operation::CREATE_ACCOUNTS, [account1, account2])
+  create_accounts_result = TBClient.submit(client, Operation::CREATE_ACCOUNTS, [account1, account2])
   if create_accounts_result.size == 0
     puts "2 Accounts created successfully"
   elsif create_accounts_result.size == 2
@@ -655,32 +656,32 @@ begin
     ledger: account2.ledger,
     code: account2.code,
   )
-  client.submit(Operation::CREATE_TRANSFERS, [transfer1, transfer2])
-  transfers = client.submit(Operation::LOOKUP_TRANSFERS, [transfer1.id, transfer2.id])
+  TBClient.submit(client, Operation::CREATE_TRANSFERS, [transfer1, transfer2])
+  transfers = TBClient.submit(client, Operation::LOOKUP_TRANSFERS, [transfer1.id, transfer2.id])
   if transfers.size != 2
     raise "Expected 2 transfers, got #{transfers.size}"
   end
 
   # AccountFilter not currently supported
   filter = AccountFilter.new(account_id: account1.id)
-  transfers = client.submit(Operation::GET_ACCOUNT_TRANSFERS, filter)
+  transfers = TBClient.submit(client, Operation::GET_ACCOUNT_TRANSFERS, filter)
   raise "Transfers working???" unless transfers.empty?
 
-  balances = client.submit(Operation::GET_ACCOUNT_BALANCES, filter)
+  balances = TBClient.submit(client, Operation::GET_ACCOUNT_BALANCES, filter)
   raise "Balances working???" unless balances.empty?
 
   # QueryFilter not currently supported
   query = QueryFilter.new(ledger: account1.ledger)
-  query_accounts = client.submit(Operation::QUERY_ACCOUNTS, query)
+  query_accounts = TBClient.submit(client, Operation::QUERY_ACCOUNTS, query)
   raise "Query Accounts working???" unless query_accounts.empty?
 
-  query_transfers = client.submit(Operation::QUERY_TRANSFERS, query)
+  query_transfers = TBClient.submit(client, Operation::QUERY_TRANSFERS, query)
   raise "Query Transfers working???" unless query_transfers.empty?
 
   puts "*"* 80
   puts "  SUCCESS: All TigerBeetle constants match expected values\n"
 ensure
-  status = client.deinit
+  status = TBClient.deinit(client)
   client = nil
 
   case status
