@@ -21,6 +21,8 @@ const MAX_BATCH_SIZE = 8192;
 
 const SKIP_PREFIXES = [_][]const u8{ "reserved", "opaque", "deprecated" };
 
+const RB_LOG_CALLBACK_IVAR = "@__log_callback__";
+
 const Operation = exports.tb_operation;
 
 const mappings_vsr = .{
@@ -365,10 +367,14 @@ fn tb_client_struct() type {
     const c_allocator = std.heap.c_allocator;
 
     return struct {
+        const Self = @This();
+        var log_callback: ?ruby.VALUE = null;
+
         pub fn init_methods(rb_client: ruby.VALUE) void {
             _ = ruby.rb_define_method(rb_client, "init", @ptrCast(&init), 2);
             _ = ruby.rb_define_method(rb_client, "deinit", @ptrCast(&deinit), 0);
             _ = ruby.rb_define_method(rb_client, "submit", @ptrCast(&submit), 2);
+            _ = ruby.rb_define_method(rb_client, "register_log_callback", @ptrCast(&register_log_callback), 2);
         }
 
         fn on_completion(
@@ -433,15 +439,46 @@ fn tb_client_struct() type {
         }
 
         fn deinit(self: ruby.VALUE) callconv(.C) ruby.VALUE {
-            if (!ruby.wrapped_rb_type_p(self, ruby.T_DATA)) {
-                ruby.rb_raise(ruby.rb_eTypeError, "Expected a Client object");
-                return ruby.Qnil;
-            }
-
             const client: *Client = @ptrCast(@alignCast(ruby.rb_check_typeddata(self, rb_client_type_t)));
 
             const status = exports.deinit(client);
             return ruby.wrapped_int2num(@intFromEnum(status));
+        }
+
+        fn callback(message_level: exports.tb_log_level, message_ptr: [*]const u8, message_len: u32) callconv(.C) void {
+            std.debug.print("*******************************\n", .{});
+            std.debug.print("callback has been triggered\n", .{});
+            if (Self.log_callback == null) {
+                return;
+            }
+            const rb_callback = Self.log_callback.?;
+
+            const rb_message_level = ruby.wrapped_int2num(@intFromEnum(message_level));
+            const rb_message = ruby.rb_str_new(@ptrCast(message_ptr), @intCast(message_len));
+
+            _ = ruby.rb_funcall(rb_callback, ruby.rb_intern("call"), 2, rb_message_level, rb_message);
+        }
+
+        fn register_log_callback(self: ruby.VALUE, rb_callback: ruby.VALUE, rb_debug: ruby.VALUE) callconv(.C) c_int {
+            _ = self;
+            std.debug.print("*******************************\n", .{});
+            std.debug.print("register log callback\n", .{});
+            const debug: bool = ruby.wrapped_rtest(rb_debug);
+
+            std.debug.print("debug is {}\n", .{debug});
+            if (ruby.wrapped_nil_p(rb_callback)) {
+                std.debug.print("rb_callback is nil\n", .{});
+                const status = exports.register_log_callback(null, debug);
+                Self.log_callback = null;
+                return @intFromEnum(status);
+            }
+
+            std.debug.print("rb_callback is not nil\n", .{});
+            Self.log_callback = rb_callback;
+            const status = exports.register_log_callback(&callback, debug);
+
+            std.debug.print("statis is {}\n", .{status});
+            return @intFromEnum(status);
         }
 
         fn get_parser(operation: Operation) !Parser {
