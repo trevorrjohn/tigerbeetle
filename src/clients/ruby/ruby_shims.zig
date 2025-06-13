@@ -61,6 +61,7 @@ pub extern fn rb_define_class_under(outer: VALUE, name: [*c]const u8, super: VAL
 pub extern fn rb_define_const(klass: VALUE, name: [*c]const u8, val: VALUE) void;
 pub extern fn rb_define_method(klass: VALUE, name: [*c]const u8, func: *const anyopaque, argc: c_int) void;
 pub extern fn rb_define_module(name: [*c]const u8) VALUE;
+pub extern fn rb_define_module_function(module: VALUE, name: [*:0]const u8, func: *const fn (...) callconv(.C) VALUE, argc: c_int) void;
 pub extern fn rb_define_module_under(outer: VALUE, name: [*c]const u8) VALUE;
 pub extern fn rb_funcall(recv: VALUE, mid: ID, argc: c_int, ...) VALUE;
 pub extern fn rb_hash_aset(hash: VALUE, key: VALUE, val: VALUE) VALUE;
