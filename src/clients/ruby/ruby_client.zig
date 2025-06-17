@@ -50,14 +50,14 @@ const mappings_state_machine = .{
 const mappings_all = mappings_vsr ++ mappings_state_machine;
 
 pub export fn initialize_ruby_client() callconv(.C) void {
-    const rb_tb_client = ruby.rb_define_module("TBClient");
+    const module = ruby.rb_define_module("TBClient");
 
     inline for (mappings_all) |type_mapping| {
         const setup_struct = type_mapping[1];
-        setup_struct.init_methods(rb_tb_client);
+        setup_struct.init_methods(module);
     }
 
-    const tb_client_methods = build_tb_client_methods();
+    const tb_client_methods = RbClientModule.new(std.heap.c_allocator);
     _ = ruby.rb_define_module_function(module, "init", @ptrCast(&tb_client_methods.init), 3);
     _ = ruby.rb_define_module_function(module, "deinit", @ptrCast(&tb_client_methods.deinit), 1);
     _ = ruby.rb_define_module_function(module, "submit", @ptrCast(&tb_client_methods.submit), 3);
@@ -357,156 +357,193 @@ const SupportedOperationParsers = [_]Parser{
     Parser{ .operation = Operation.query_transfers, .from_ruby = create_from_ruby(exports.tb_query_filter_t, .{ .isArray = false }), .to_ruby = create_to_ruby(exports.tb_transfer_t) },
 };
 
-fn build_tb_client_methods() type {
+const RbClientModule = struct {
+    allocator: std.mem.Allocator,
+    init: *const fn (ruby.VALUE, ruby.VALUE, ruby.VALUE) callconv(.C) ruby.VALUE,
+
+
+    const rb_client_type_t: *const ruby.rb_data_type_t = type_mapping_from_zig_type(Client).get_rb_data_type_ptr();
     const Client = exports.tb_client_t;
     const Packet = exports.tb_packet_t;
 
-    const rb_client_type_t: *const ruby.rb_data_type_t = comptime type_mapping_from_zig_type(Client).get_rb_data_type_ptr();
-    const c_allocator = std.heap.c_allocator;
+    pub fn new(allocator: std.mem.Allocator) RbClientModule {
+        return RbClientModule{ .allocator = allocator,
+            init: RbClientModule.init
+};
+    }
 
-    return struct {
-        fn on_completion(
-            completion_ctx: usize,
-            packet: *Packet,
-            timestamp: u64,
-            result_ptr: [*]const u8,
-            result_len: u32,
-        ) callconv(.C) void {
-            _ = completion_ctx;
-            _ = timestamp;
+    pub fn init(self: *RbClientModule) *const fn (ruby.VALUE, ruby.VALUE, ruby.VALUE) callconv(.C) ruby.VALUE {
+        return struct {
+            const Self = @This();
 
-            const ctx: *ResultContext = @ptrCast(@alignCast(packet.user_data));
+            fn validate_init_args(rb_client: ruby.VALUE, rb_addresses: ruby.VALUE, rb_cluster_id: ruby.VALUE) Error!void {
+                if (ruby.wrapped_nil_p(rb_addresses) or !ruby.wrapped_rb_type_p(rb_addresses, ruby.T_STRING)) {
+                    ruby.rb_raise(ruby.rb_eArgError, "addresses must be a non-nil String");
+                    return Error.ArgError;
+                }
 
-            ctx.mutex.lock();
-            defer ctx.mutex.unlock();
+                if (ruby.wrapped_nil_p(rb_cluster_id)) {
+                    ruby.rb_raise(ruby.rb_eArgError, "cluster_id must be a non-nil Integer");
+                    return Error.ArgError;
+                }
 
-            ctx.waiting = false;
-            ctx.result.size = result_len;
-            if (result_len > 0) {
-                const data_alloc = c_allocator.alloc(u8, result_len) catch {
-                    ctx.result_error = Error.OutOfMemory;
-                    return;
-                };
-                ctx.result.data = data_alloc.ptr;
-                @memcpy(data_alloc, result_ptr[0..result_len]);
-            }
-            ctx.condition.signal();
-        }
-
-        fn init(self: ruby.VALUE, rb_addresses: ruby.VALUE, rb_cluster_id: ruby.VALUE) callconv(.C) ruby.VALUE {
-            if (ruby.wrapped_nil_p(rb_addresses) or !ruby.wrapped_rb_type_p(rb_addresses, ruby.T_STRING)) {
-                ruby.rb_raise(ruby.rb_eArgError, "addresses must be a non-nil String");
-                return ruby.Qnil;
-            }
-            if (ruby.wrapped_nil_p(rb_cluster_id)) {
-                ruby.rb_raise(ruby.rb_eArgError, "cluster_id must be a non-nil Integer");
-                return ruby.Qnil;
-            }
-
-            const cluster_id: [16]u8 = @bitCast(rb_int_to_u128(rb_cluster_id) catch {
-                // rb_int_to_u128 will raise the ruby error if it fails
-                return ruby.Qnil;
-            });
-            if (!ruby.wrapped_rb_type_p(self, ruby.T_DATA)) {
-                ruby.rb_raise(ruby.rb_eTypeError, "Expected a Client object");
-                return ruby.Qnil;
-            }
-
-            const client: *Client = @ptrCast(@alignCast(ruby.rb_check_typeddata(self, rb_client_type_t)));
-
-            const status = exports.init(
-                client,
-                &cluster_id,
-                @ptrCast(ruby.wrapped_rstring_ptr(rb_addresses)),
-                @intCast(ruby.wrapped_rstring_len(rb_addresses)),
-                0,
-                @ptrCast(&on_completion),
-            );
-
-            return ruby.wrapped_int2num(@intFromEnum(status));
-        }
-
-        fn deinit(self: ruby.VALUE) callconv(.C) ruby.VALUE {
-            if (!ruby.wrapped_rb_type_p(self, ruby.T_DATA)) {
-                ruby.rb_raise(ruby.rb_eTypeError, "Expected a Client object");
-                return ruby.Qnil;
-            }
-
-            const client: *Client = @ptrCast(@alignCast(ruby.rb_check_typeddata(self, rb_client_type_t)));
-
-            const status = exports.deinit(client);
-            return ruby.wrapped_int2num(@intFromEnum(status));
-        }
-
-        fn get_parser(operation: Operation) !Parser {
-            inline for (SupportedOperationParsers) |parser| {
-                if (parser.operation == operation) {
-                    return parser;
+                if (!ruby.wrapped_rb_type_p(rb_client, ruby.T_DATA)) {
+                    ruby.rb_raise(ruby.rb_eTypeError, "Expected a Client object");
+                    return Error.ArgError;
                 }
             }
-            return Error.ArgError;
+
+            fn init(module: ruby.VALUE, rb_client: ruby.VALUE, rb_addresses: ruby.VALUE, rb_cluster_id: ruby.VALUE) callconv(.C) ruby.VALUE {
+                _ = module;
+
+                validate_init_args(rb_client, rb_addresses, rb_cluster_id) catch {
+                    return ruby.Qnil;
+                };
+                const cluster_id: [16]u8 = @bitCast(rb_int_to_u128(rb_cluster_id) catch {
+                    return ruby.Qnil;
+                });
+
+                const client: *Client = @ptrCast(@alignCast(ruby.rb_check_typeddata(rb_client, rb_client_type_t)));
+
+                const status = exports.init(
+                    client,
+                    &cluster_id,
+                    @ptrCast(ruby.wrapped_rstring_ptr(rb_addresses)),
+                    @intCast(ruby.wrapped_rstring_len(rb_addresses)),
+                    0,
+                    @ptrCast(&self.on_completion),
+                );
+
+                return ruby.wrapped_int2num(@intFromEnum(status));
+            }
+        }.init;
+    }
+
+    fn on_completion(self: *RbClientModule) *const fn (usize, *Packet, u64, [*]const u8, u32) callconv(.C) void {
+        return struct {
+            fn on_completion(
+                completion_ctx: usize,
+                packet: *Packet,
+                timestamp: u64,
+                result_ptr: [*]const u8,
+                result_len: u32,
+            ) callconv(.C) void {
+                _ = completion_ctx;
+                _ = timestamp;
+
+                const ctx: *ResultContext = @ptrCast(@alignCast(packet.user_data));
+
+                ctx.mutex.lock();
+                defer ctx.mutex.unlock();
+
+                ctx.waiting = false;
+                ctx.result.size = result_len;
+                if (result_len > 0) {
+                    const data_alloc = self.allocator.alloc(u8, result_len) catch {
+                        ctx.result_error = Error.OutOfMemory;
+                        return;
+                    };
+                    ctx.result.data = data_alloc.ptr;
+                    @memcpy(data_alloc, result_ptr[0..result_len]);
+                }
+                ctx.condition.signal();
+            }
+        }.on_completion;
+    }
+
+    pub fn deinit(self: *RbClientModule) *const fn (ruby.VALUE) callconv(.C) ruby.VALUE {
+        _ = self;
+
+        return struct {
+            fn deinit(module: ruby.VALUE, rb_client: ruby.VALUE) callconv(.C) ruby.VALUE {
+                _ = module;
+                if (!ruby.wrapped_rb_type_p(rb_client, ruby.T_DATA)) {
+                    ruby.rb_raise(ruby.rb_eTypeError, "Expected a Client object");
+                    return ruby.Qnil;
+                }
+
+                const client: *Client = @ptrCast(@alignCast(ruby.rb_check_typeddata(rb_client, rb_client_type_t)));
+
+                const status = exports.deinit(client);
+                return ruby.wrapped_int2num(@intFromEnum(status));
+            }
+        }.deinit;
+    }
+
+    fn get_parser(operation: Operation) !Parser {
+        inline for (SupportedOperationParsers) |parser| {
+            if (parser.operation == operation) {
+                return parser;
+            }
         }
+        return Error.ArgError;
+    }
 
-        fn submit(self: ruby.VALUE, rb_operation: ruby.VALUE, rb_data: ruby.VALUE) callconv(.C) ruby.VALUE {
-            if (ruby.wrapped_nil_p(rb_operation) or !ruby.wrapped_rb_type_p(rb_operation, ruby.T_FIXNUM)) {
-                ruby.rb_raise(ruby.rb_eArgError, "operation must be a non-nil Integer object");
-                return ruby.Qnil;
+    pub fn submit(self: *RbClientModule) *const fn (ruby.VALUE, ruby.VALUE, ruby.VALUE, ruby.VALUE) callconv(.C) ruby.VALUE {
+        return struct {
+            fn submit(module: self.VALUE, rb_client: ruby.VALUE, rb_operation: ruby.VALUE, rb_data: ruby.VALUE) callconv(.C) ruby.VALUE {
+                _ = module;
+
+                if (ruby.wrapped_nil_p(rb_operation) or !ruby.wrapped_rb_type_p(rb_operation, ruby.T_FIXNUM)) {
+                    ruby.rb_raise(ruby.rb_eArgError, "operation must be a non-nil Integer object");
+                    return ruby.Qnil;
+                }
+                if (ruby.wrapped_nil_p(rb_data)) {
+                    ruby.rb_raise(ruby.rb_eArgError, "data must be a non-nil");
+                    return ruby.Qnil;
+                }
+
+                const operation: Operation = @enumFromInt(@as(u8, @intCast(ruby.wrapped_num2uint(rb_operation))));
+                const parser = RbClientModule.get_parser(operation) catch {
+                    ruby.rb_raise(ruby.rb_eArgError, "Unsupported operation: %d", @intFromEnum(operation));
+                    return ruby.Qnil;
+                };
+
+                const parsed_data: ParsedData = parser.from_ruby(self.allocator, rb_data) catch {
+                    // #from_ruby will raise the ruby error if it fails
+                    return ruby.Qnil;
+                };
+                defer self.allocator.free(parsed_data.data.?[0..parsed_data.size]);
+
+                const client: *Client = @ptrCast(@alignCast(ruby.rb_check_typeddata(rb_client, rb_client_type_t)));
+
+                var result_context = ResultContext{
+                    .operation = operation,
+                };
+
+                var packet = Packet{
+                    .user_data = @ptrCast(&result_context),
+                    .data = @constCast(@ptrCast(parsed_data.data)),
+                    .data_size = parsed_data.size,
+                    .user_tag = 0, // Set by the client internally
+                    .operation = @intFromEnum(operation),
+                    .status = exports.tb_packet_status.ok, // Initial status
+                };
+
+                const status = exports.submit(client, &packet);
+
+                if (status != exports.tb_client_status.ok) {
+                    ruby.rb_raise(ruby.rb_eRuntimeError, "Failed to submit packet, submit failed with status: %d", @intFromEnum(status));
+                    return ruby.Qnil;
+                }
+
+                result_context.mutex.lock();
+                defer result_context.mutex.unlock();
+
+                while (result_context.waiting) {
+                    result_context.condition.wait(&result_context.mutex);
+                }
+
+                if (result_context.result_error != null) {
+                    ruby.rb_raise(ruby.rb_eRuntimeError, "Out of memory while processing request");
+                    return ruby.Qnil;
+                }
+
+                return parser.to_ruby(&result_context.result);
             }
-            if (ruby.wrapped_nil_p(rb_data)) {
-                ruby.rb_raise(ruby.rb_eArgError, "data must be a non-nil");
-                return ruby.Qnil;
-            }
-
-            const operation: Operation = @enumFromInt(@as(u8, @intCast(ruby.wrapped_num2uint(rb_operation))));
-            const parser = get_parser(operation) catch {
-                ruby.rb_raise(ruby.rb_eArgError, "Unsupported operation: %d", @intFromEnum(operation));
-                return ruby.Qnil;
-            };
-
-            const parsed_data: ParsedData = parser.from_ruby(c_allocator, rb_data) catch {
-                // #from_ruby will raise the ruby error if it fails
-                return ruby.Qnil;
-            };
-            defer c_allocator.free(parsed_data.data.?[0..parsed_data.size]);
-
-            const client: *Client = @ptrCast(@alignCast(ruby.rb_check_typeddata(self, rb_client_type_t)));
-
-            var result_context = ResultContext{
-                .operation = operation,
-            };
-
-            var packet = Packet{
-                .user_data = @ptrCast(&result_context),
-                .data = @constCast(@ptrCast(parsed_data.data)),
-                .data_size = parsed_data.size,
-                .user_tag = 0, // Set by the client internally
-                .operation = @intFromEnum(operation),
-                .status = exports.tb_packet_status.ok, // Initial status
-            };
-
-            const status = exports.submit(client, &packet);
-
-            if (status != exports.tb_client_status.ok) {
-                ruby.rb_raise(ruby.rb_eRuntimeError, "Failed to submit packet, submit failed with status: %d", @intFromEnum(status));
-                return ruby.Qnil;
-            }
-
-            result_context.mutex.lock();
-            defer result_context.mutex.unlock();
-
-            while (result_context.waiting) {
-                result_context.condition.wait(&result_context.mutex);
-            }
-
-            if (result_context.result_error != null) {
-                ruby.rb_raise(ruby.rb_eRuntimeError, "Out of memory while processing request");
-                return ruby.Qnil;
-            }
-
-            return parser.to_ruby(&result_context.result);
-        }
-    };
-}
+        }.submit;
+    }
+};
 
 fn skip_field(comptime field_name: []const u8) bool {
     inline for (SKIP_PREFIXES) |prefix| {
