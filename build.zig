@@ -1543,6 +1543,41 @@ fn build_ruby_client(
                 shared_lib.out_filename,
             }),
         ).step);
+
+        // generate static lib to handle submissions
+        const static_lib = b.addStaticLibrary(.{
+            .name = "rb_tb_client",
+            .root_source_file = b.path("src/clients/ruby/ruby_client.zig"),
+            .target = resolved_target,
+            .optimize = options.mode,
+        });
+
+        static_lib.bundle_compiler_rt = true;
+        static_lib.linker_allow_shlib_undefined = true;
+
+        static_lib.linkLibC();
+
+        if (resolved_target.result.os.tag == .windows) {
+            static_lib.linkSystemLibrary("ws2_32");
+            static_lib.linkSystemLibrary("advapi32");
+        }
+
+        static_lib.root_module.addImport("vsr", options.vsr_module);
+        static_lib.root_module.addOptions("vsr_options", options.vsr_options);
+
+        // First, make sure the static library compiles successfully
+        // Install the static library (platform-specific path)
+        const lib_install = b.addInstallFile(
+            static_lib.getEmittedBin(),
+            b.pathJoin(&.{
+                "../src/clients/ruby/ext/rb_tigerbeetle/",
+                platform[0],
+                static_lib.out_filename,
+            }),
+        );
+
+        lib_install.step.dependOn(&static_lib.step);
+        step_clients_ruby.dependOn(&lib_install.step);
     }
 
     step_clients_ruby.dependOn(&signatures.step);
