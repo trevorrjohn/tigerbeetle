@@ -1509,7 +1509,7 @@ fn build_ruby_client(
 
     const bindings = Generated.file(b, .{
         .generator = ruby_bindings_generator,
-        .path = "./src/clients/ruby/lib/tb_client.rb",
+        .path = "./src/clients/ruby/lib/tb_client/bindings.rb",
     });
 
     inline for (platforms) |platform| {

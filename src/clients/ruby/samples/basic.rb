@@ -38,3 +38,4 @@ else
   puts "Could not connect, status: #{InitStatus.find(init_status)}"
   exit 1
 end
+

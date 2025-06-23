@@ -146,12 +146,12 @@ fn emit_enum(
     comptime skip_fields: []const []const u8,
 ) !void {
     if (@typeInfo(Type) == .Enum) {
-        buffer.print("  {s}: {{\n", .{ruby_name});
+        buffer.print("    {s}: {{\n", .{ruby_name});
     } else {
         // Packed structs.
         assert(@typeInfo(Type) == .Struct and @typeInfo(Type).Struct.layout == .@"packed");
 
-        buffer.print("  {s}: {{\n", .{ruby_name});
+        buffer.print("    {s}: {{\n", .{ruby_name});
     }
 
     inline for (type_info.fields) |field| {
@@ -163,13 +163,13 @@ fn emit_enum(
 
         if (!skip) {
             const field_name = to_uppercase(field.name);
-            buffer.print("    {s}: Integer,\n", .{
+            buffer.print("      {s}: Integer,\n", .{
                 @as([]const u8, &field_name),
             });
         }
     }
 
-    buffer.print("  }}\n\n", .{});
+    buffer.print("    }}\n\n", .{});
 }
 
 fn emit_rb_ffi_struct(
@@ -177,17 +177,17 @@ fn emit_rb_ffi_struct(
     comptime type_info: anytype,
     comptime ruby_name: []const u8,
 ) !void {
-    buffer.print("  class {s} < FFI::Struct\n", .{
+    buffer.print("    class {s} < FFI::Struct\n", .{
         .type_name = ruby_name,
     });
 
     inline for (type_info.fields) |field| {
-        buffer.print("    attr_accessor {s}: {s}\n", .{
+        buffer.print("      attr_accessor {s}: {s}\n", .{
             field.name,
             zig_to_rbs_type(field.type),
         });
     }
-    buffer.print("  end\n\n", .{});
+    buffer.print("    end\n\n", .{});
 }
 
 pub fn main() !void {
@@ -205,6 +205,7 @@ pub fn main() !void {
         \\##################################################
         \\
         \\module TBClient
+        \\  module Bindings
         \\
         \\
     , .{});
@@ -232,10 +233,10 @@ pub fn main() !void {
     }
 
     buffer.print(
-        \\  class UINT128 < FFI::Struct
-        \\    attr_accessor lo: Integer
-        \\    attr_accessor hi: Integer
-        \\  end
+        \\    class UINT128 < FFI::Struct
+        \\      attr_accessor lo: Integer
+        \\      attr_accessor hi: Integer
+        \\    end
         \\
         \\
     , .{});
@@ -255,13 +256,14 @@ pub fn main() !void {
 
     // Emit function declarations corresponding to the underlying libtbclient exported functions.
     buffer.print(
-        \\  type on_completion = ^(Integer, Packet, Integer, untyped, Integer) -> void
-        \\  type log_handler = ^(LogLevel, untyped, Integer) -> void
+        \\    type on_completion = ^(Integer, Packet, Integer, untyped, Integer) -> void
+        \\    type log_handler = ^(LogLevel, untyped, Integer) -> void
         \\
-        \\  def self.tb_client_init: (Client, untyped, String, Integer, Integer, on_completion) -> InitStatus
-        \\  def self.tb_client_submit: (Client, Packet) -> ClientStatus
-        \\  def self.tb_client_deinit: (Client) -> ClientStatus
-        \\  def self.tb_client_register_log_callback: (log_handler, bool) -> RegisterLogCallbackStatus
+        \\    def self.tb_client_init: (Client, untyped, String, Integer, Integer, on_completion) -> InitStatus
+        \\    def self.tb_client_submit: (Client, Packet) -> ClientStatus
+        \\    def self.tb_client_deinit: (Client) -> ClientStatus
+        \\    def self.tb_client_register_log_callback: (log_handler, bool) -> RegisterLogCallbackStatus
+        \\  end
         \\end
         \\
     , .{});
